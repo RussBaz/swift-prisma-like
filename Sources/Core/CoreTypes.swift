@@ -7,6 +7,22 @@ public enum PrismaLike {
         private init(_ value: String) {
             self.value = value
         }
+
+        init?(from value: String) {
+            guard let first = value.first else { return nil }
+            guard first.isASCIILetter else { return nil }
+
+            let secondPos = value.index(after: value.startIndex)
+
+            guard value.distanceToEnd(from: secondPos) > 0 else {
+                self.value = value
+                return
+            }
+
+            guard value[secondPos ... value.endIndex].allSatisfy(\.isWord) else { return nil }
+
+            self.value = value
+        }
     }
 
     public struct Datasource {
@@ -23,17 +39,20 @@ public enum PrismaLike {
         let name: PrismaName
         let provider: ProviderType
         let url: PropertyValue
+        let comments: [String]
     }
 
     public struct Generator {
         let name: PrismaName
         let provider: String
         let output: String?
+        let comments: [String]
     }
 
     public struct Enumeration {
         let name: PrismaName
         let values: [String]
+        let comments: [String]
     }
 
     public struct Model {
@@ -149,6 +168,7 @@ public enum PrismaLike {
             let type: FieldType
             let modifier: FieldModifier
             let attributes: [FieldAttribute]
+            let comments: [String]
         }
 
         public enum ModelAttribute {
@@ -163,6 +183,7 @@ public enum PrismaLike {
         let name: PrismaName
         let fields: [Field]
         let attributes: [ModelAttribute]
+        let comments: [String]
     }
 
     /// Losely typed Prisma Schema
