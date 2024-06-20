@@ -76,7 +76,15 @@ struct KVBlockParser: Parser {
         envVariable = false
     }
 
-    mutating func parse(_ data: DataSource) -> KVBlock? {
+    mutating func parse(_ data: DataSource) -> ParseResult<KVBlock> {
+        let position = data.curentPosition
+
+        return .withErrors(result: nil, errors: [.init(message: "Not implemented", line: 1, col: 1)])
+    }
+
+    private mutating func parseLine(_ data: DataSource) -> KVBlock.KVLine? {
+        guard let c = data.nextCharacter() else { return nil }
+
         return nil
     }
 }
@@ -114,7 +122,85 @@ extension KVBlockParser {
         case skippingRestOfLine
         case endOfBlock
     }
+
+    struct ValueParser {}
 }
+
+extension KVBlockParser.ValueParser {
+    enum State {
+        case lookingForBeginning
+
+        case parsingQuoted
+        // Nested parser will return either nil or string
+        // New lines will break it and invisible characters should be skipped
+
+        case parsingNegativeNumber
+        case parsingPositiveNumber
+        // Nested parser will return either nil, int number or double number
+        // (on success) plus the next state -> slash or other separators
+
+        case parsingBool
+        // Nested parser will return either nil or bool
+        // (on success) plus the next state -> slash or other separators
+
+        case parsingEnv
+        // Nested parser will return either nil or string
+        // (on success) plus the next state -> slash or other separators
+    }
+
+    struct QuotedStringParser {}
+    struct NumberParser {}
+    struct BoolParser {}
+    struct EnvParser {}
+}
+
+extension KVBlockParser.ValueParser.QuotedStringParser {
+    enum State {
+        case normal
+        case possiblyQuoted
+    }
+
+    func parse(_ data: DataSource) -> String? {
+        var state: State = .normal
+        var buffer = ""
+
+        while let c = data.nextCharacter() {
+            guard !c.isNewline else { return nil }
+
+            switch state {
+            case .normal:
+                switch c {
+                case "\\":
+                    state = .possiblyQuoted
+                case "\"":
+                    return buffer
+                case c where c.isControl:
+                    ()
+                default:
+                    buffer.append(c)
+                }
+            case .possiblyQuoted:
+                state = .normal
+
+                switch c {
+                case "\"":
+                    buffer.append("\"")
+                case c where c.isControl:
+                    buffer.append("\\")
+                default:
+                    buffer.append("\\")
+                    buffer.append(c)
+                }
+            }
+        }
+
+        return nil
+    }
+}
+
+extension KVBlockParser.ValueParser.NumberParser {}
+extension KVBlockParser.ValueParser.BoolParser {}
+extension KVBlockParser.ValueParser.EnvParser {}
 
 extension KVBlock.KVLine.Value: Equatable {}
 extension KVBlock.KVLine: Equatable {}
