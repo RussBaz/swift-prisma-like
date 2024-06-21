@@ -13,25 +13,26 @@ final class DataSource {
 
     let data: String
 
-    private(set) var nextPos: String.Index
+    private(set) var currentPos: String.Index
     private(set) var currentCol = 1
     private(set) var currentLine = 1
 
     init(_ data: String) {
         self.data = data
-        nextPos = data.startIndex
+        currentPos = data.startIndex
     }
 
     init?(file name: String) {
         guard let s = try? String(contentsOfFile: name) else { return nil }
         data = s
-        nextPos = s.startIndex
+        currentPos = s.startIndex
     }
 
     func nextCharacter() -> Character? {
         guard !endReached else { return nil }
+        currentPos = data.index(after: currentPos)
 
-        let c = data[nextPos]
+        guard let c = currentCharacter else { return nil }
 
         if c.isNewline {
             currentCol = 1
@@ -40,22 +41,60 @@ final class DataSource {
             currentCol += 1
         }
 
-        // Only move the index pointer at the end of operation
-        nextPos = data.index(after: nextPos)
-
         return c
     }
 
+    @discardableResult
+    func nextPos() -> Bool {
+        guard !endReached else { return false }
+        currentPos = data.index(after: currentPos)
+
+        guard let c = currentCharacter else { return false }
+
+        if c.isNewline {
+            currentCol = 1
+            currentLine += 1
+        } else {
+            currentCol += 1
+        }
+
+        return true
+    }
+
+    func skipWhiteSpaces() {
+        guard let c = currentCharacter, c == " " else { return }
+        while let c = nextCharacter() {
+            guard c == " " else { return }
+        }
+    }
+
+    func skipLine() {
+        guard let c = currentCharacter, !c.isNewline else { return }
+        while let c = nextCharacter() {
+            guard !c.isNewline else { return }
+        }
+    }
+
     var endReached: Bool {
-        nextPos == data.endIndex
+        currentPos == data.endIndex
+    }
+
+    var atBeginning: Bool {
+        currentPos == data.startIndex
+    }
+
+    var currentCharacter: Character? {
+        guard !endReached else { return nil }
+
+        return data[currentPos]
     }
 
     var curentPosition: FixedPosition {
         get {
-            .init(pos: nextPos, col: currentCol, line: currentLine)
+            .init(pos: currentPos, col: currentCol, line: currentLine)
         }
         set {
-            nextPos = newValue.pos
+            currentPos = newValue.pos
             currentCol = newValue.col
             currentLine = newValue.line
         }

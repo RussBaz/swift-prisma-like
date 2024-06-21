@@ -134,8 +134,7 @@ extension KVBlockParser.ValueParser {
         // Nested parser will return either nil or string
         // New lines will break it and invisible characters should be skipped
 
-        case parsingNegativeNumber
-        case parsingPositiveNumber
+        case parsingNumber
         // Nested parser will return either nil, int number or double number
         // (on success) plus the next state -> slash or other separators
 
@@ -152,6 +151,8 @@ extension KVBlockParser.ValueParser {
     struct NumberParser {}
     struct BoolParser {}
     struct EnvParser {}
+
+    struct CommentParser {}
 }
 
 extension KVBlockParser.ValueParser.QuotedStringParser {
@@ -160,20 +161,20 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
         case possiblyQuoted
     }
 
+    /// Extracts the string contents until an unescaped quotation symbol is enountered
+    /// It will return 'nil' if the new line or the end of data are encountered before the end of quoted string is reached
     func parse(_ data: DataSource) -> String? {
         var state: State = .normal
         var buffer = ""
 
-        while let c = data.nextCharacter() {
-            guard !c.isNewline else { return nil }
-
+        func updateStateAndContinue(with c: Character) -> Bool {
             switch state {
             case .normal:
                 switch c {
                 case "\\":
                     state = .possiblyQuoted
                 case "\"":
-                    return buffer
+                    return false
                 case c where c.isControl:
                     ()
                 default:
@@ -192,13 +193,92 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
                     buffer.append(c)
                 }
             }
+
+            return true
+        }
+
+        while let c = data.nextCharacter() {
+            guard !c.isNewline else { return nil }
+
+            // Because we have discarded the new line characters
+            // it will only stop when the closing quotation mark is encoutnered
+            guard updateStateAndContinue(with: c) else { return buffer }
         }
 
         return nil
     }
 }
 
-extension KVBlockParser.ValueParser.NumberParser {}
+extension KVBlockParser.ValueParser.NumberParser {
+    enum State {
+        case empty
+        case parsingInteger
+        case parsingDouble
+    }
+
+    enum Output: Equatable {
+        case integer(Int)
+        case double(Double)
+    }
+
+    func parse(_ data: DataSource, negative: Bool, firstCharacter: Character? = nil) -> Output? {
+        var state: State = .empty
+        var buffer = if negative { "-" } else { "" }
+
+        if let c = firstCharacter, c.isASCIINumber {
+            state = .parsingInteger
+            buffer.append(c)
+        }
+
+        loop: while let c = data.nextCharacter() {
+            guard !c.isNewline else { break }
+
+            switch state {
+            case .empty:
+                switch c {
+                case c where c.isASCIINumber:
+                    buffer.append(c)
+                    state = .parsingInteger
+                default:
+                    return nil
+                }
+            case .parsingInteger:
+                switch c {
+                case ".":
+                    buffer.append(c)
+                    state = .parsingDouble
+                case " ", "/":
+                    break loop
+                case c where c.isASCIINumber:
+                    buffer.append(c)
+                default:
+                    return nil
+                }
+            case .parsingDouble:
+                switch c {
+                case " ", "/":
+                    break loop
+                case c where c.isASCIINumber:
+                    buffer.append(c)
+                default:
+                    return nil
+                }
+            }
+        }
+
+        switch state {
+        case .empty:
+            return nil
+        case .parsingInteger:
+            guard let integer = Int(buffer) else { return nil }
+            return .integer(integer)
+        case .parsingDouble:
+            guard let double = Double(buffer) else { return nil }
+            return .double(double)
+        }
+    }
+}
+
 extension KVBlockParser.ValueParser.BoolParser {}
 extension KVBlockParser.ValueParser.EnvParser {}
 
