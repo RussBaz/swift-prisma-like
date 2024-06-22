@@ -14,7 +14,7 @@ public enum PrismaLike {
 
             let secondPos = value.index(after: value.startIndex)
 
-            guard value.distanceToEnd(from: secondPos) > 0 else {
+            guard secondPos != value.endIndex else {
                 self.value = value
                 return
             }

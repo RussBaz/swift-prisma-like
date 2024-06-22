@@ -22,6 +22,13 @@ final class KVLineValueTests: XCTestCase {
         let result3 = parser.parse(source3)
 
         XCTAssertEqual(result3, " hello\\n")
+
+        let source4 = DataSource("\"hello\"-")
+        let result4 = parser.parse(source4)
+
+        XCTAssertEqual(result4, "hello")
+        XCTAssertEqual(source4.currentCol, 7)
+        XCTAssertEqual(source4.currentCharacter, "\"")
     }
 
     func testNumberParser() throws {
@@ -38,6 +45,7 @@ final class KVLineValueTests: XCTestCase {
         let data9 = DataSource("10e1")
         let data10 = DataSource("10no //")
         let data11 = DataSource("-964.0\n 2 ")
+        let data12 = DataSource("18 // a comment")
 
         let result1 = parser.parse(data1, firstCharacter: .minus)
         let result2 = parser.parse(data2, firstCharacter: .digit("3"))
@@ -50,6 +58,7 @@ final class KVLineValueTests: XCTestCase {
         let result9 = parser.parse(data9, firstCharacter: .digit("1"))
         let result10 = parser.parse(data10, firstCharacter: .digit("1"))
         let result11 = parser.parse(data11, firstCharacter: .minus)
+        let result12 = parser.parse(data12, firstCharacter: .digit("1"))
 
         XCTAssertEqual(result1, .integer(-123))
         XCTAssertEqual(result2, .integer(3))
@@ -62,13 +71,17 @@ final class KVLineValueTests: XCTestCase {
         XCTAssertEqual(result9, nil)
         XCTAssertEqual(result10, nil)
         XCTAssertEqual(result11, .double(-964))
+        XCTAssertEqual(result12, .integer(18))
+
+        XCTAssertEqual(data12.currentCol, 3)
+        XCTAssertEqual(data12.currentCharacter, " ")
     }
 
     func testBoolParser() throws {
         let parser = KVBlockParser.ValueParser.BoolParser()
 
         let data1 = DataSource("true")
-        let data2 = DataSource("false ")
+        let data2 = DataSource("false // true")
         let data3 = DataSource("tRuE\n")
         let data4 = DataSource("FALSE/")
         let data5 = DataSource("tru ")
@@ -87,5 +100,36 @@ final class KVLineValueTests: XCTestCase {
         XCTAssertEqual(result4, false)
         XCTAssertEqual(result5, nil)
         XCTAssertEqual(result6, nil)
+
+        XCTAssertEqual(data2.currentCol, 6)
+        XCTAssertEqual(data2.currentCharacter, " ")
+    }
+
+    func testEnvParser() throws {
+        let parser = KVBlockParser.ValueParser.EnvParser()
+
+        let data1 = DataSource("env(  \"yes?\" )")
+        let data2 = DataSource("env(\"no 12\") // is this a comment? \n")
+        let data3 = DataSource("env( \"\\\"\")// no?")
+        let data4 = DataSource("env(\"\")\n")
+        let data5 = DataSource("enve(\"1\") ")
+        let data6 = DataSource("env(\"--\")- ")
+
+        let result1 = parser.parse(data1)
+        let result2 = parser.parse(data2)
+        let result3 = parser.parse(data3)
+        let result4 = parser.parse(data4)
+        let result5 = parser.parse(data5)
+        let result6 = parser.parse(data6)
+
+        XCTAssertEqual(result1, "yes?")
+        XCTAssertEqual(result2, "no 12")
+        XCTAssertEqual(result3, "\"")
+        XCTAssertEqual(result4, "")
+        XCTAssertEqual(result5, nil)
+        XCTAssertEqual(result6, nil)
+
+        XCTAssertEqual(data2.currentCol, 13)
+        XCTAssertEqual(data2.currentCharacter, " ")
     }
 }

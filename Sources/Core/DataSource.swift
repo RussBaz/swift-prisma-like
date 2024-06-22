@@ -62,7 +62,6 @@ final class DataSource {
     }
 
     func skipWhiteSpaces() {
-        guard let c = currentCharacter, c == " " else { return }
         while let c = nextCharacter() {
             guard c == " " else { return }
         }

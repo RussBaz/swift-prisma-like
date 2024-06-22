@@ -163,6 +163,7 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
 
     /// Extracts the string contents until an unescaped quotation symbol is enountered
     /// It will return 'nil' if the new line or the end of data are encountered before the end of quoted string is reached
+    /// Unlike most other parser, quoted string parser does test the next symbol after the closing quotes
     func parse(_ data: DataSource) -> String? {
         var state: State = .normal
         var buffer = ""
@@ -306,7 +307,9 @@ extension KVBlockParser.ValueParser.BoolParser {
             guard let nextChar = data.nextCharacter() else { return true }
 
             switch nextChar {
-            case " ", "/", "\n":
+            case " ", "/":
+                return true
+            case nextChar where nextChar.isNewline:
                 return true
             default:
                 return nil
@@ -328,7 +331,9 @@ extension KVBlockParser.ValueParser.BoolParser {
             guard let nextChar = data.nextCharacter() else { return false }
 
             switch nextChar {
-            case " ", "/", "\n":
+            case " ", "/":
+                return false
+            case nextChar where nextChar.isNewline:
                 return false
             default:
                 return nil
@@ -337,7 +342,31 @@ extension KVBlockParser.ValueParser.BoolParser {
     }
 }
 
-extension KVBlockParser.ValueParser.EnvParser {}
+extension KVBlockParser.ValueParser.EnvParser {
+    func parse(_ data: DataSource) -> String? {
+        guard let c2 = data.nextCharacter(), c2 == "n" else { return nil }
+
+        guard let c3 = data.nextCharacter(), c3 == "v" else { return nil }
+
+        guard let c4 = data.nextCharacter(), c4 == "(" else { return nil }
+
+        data.skipWhiteSpaces()
+
+        guard let c5 = data.currentCharacter, c5 == "\"" else { return nil }
+
+        guard let content = KVBlockParser.ValueParser.QuotedStringParser().parse(data) else { return nil }
+
+        data.skipWhiteSpaces()
+
+        guard let c6 = data.currentCharacter, c6 == ")" else { return nil }
+
+        guard let c7 = data.nextCharacter() else { return content }
+
+        guard c7 == " " || c7 == "/" || c7.isNewline else { return nil }
+
+        return content
+    }
+}
 
 extension KVBlock.KVLine.Value: Equatable {}
 extension KVBlock.KVLine: Equatable {}
