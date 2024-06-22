@@ -216,16 +216,22 @@ extension KVBlockParser.ValueParser.NumberParser {
         case parsingDouble
     }
 
+    enum FirstCharacterType {
+        case minus
+        case plus
+        case digit(Character)
+    }
+
     enum Output: Equatable {
         case integer(Int)
         case double(Double)
     }
 
-    func parse(_ data: DataSource, negative: Bool, firstCharacter: Character? = nil) -> Output? {
+    func parse(_ data: DataSource, firstCharacter: FirstCharacterType) -> Output? {
         var state: State = .empty
-        var buffer = if negative { "-" } else { "" }
+        var buffer = if case .minus = firstCharacter { "-" } else { "" }
 
-        if let c = firstCharacter, c.isASCIINumber {
+        if case .digit(let c) = firstCharacter, c.isASCIINumber {
             state = .parsingInteger
             buffer.append(c)
         }
