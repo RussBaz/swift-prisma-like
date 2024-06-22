@@ -231,7 +231,7 @@ extension KVBlockParser.ValueParser.NumberParser {
         var state: State = .empty
         var buffer = if case .minus = firstCharacter { "-" } else { "" }
 
-        if case .digit(let c) = firstCharacter, c.isASCIINumber {
+        if case let .digit(c) = firstCharacter, c.isASCIINumber {
             state = .parsingInteger
             buffer.append(c)
         }
@@ -285,7 +285,58 @@ extension KVBlockParser.ValueParser.NumberParser {
     }
 }
 
-extension KVBlockParser.ValueParser.BoolParser {}
+extension KVBlockParser.ValueParser.BoolParser {
+    enum FirstCharacterType {
+        case t, f
+    }
+
+    func parse(_ data: DataSource, firstCharacter: FirstCharacterType) -> Bool? {
+        switch firstCharacter {
+        case .t:
+            guard let c2 = data.nextCharacter() else { return nil }
+            guard c2 == "r" || c2 == "R" else { return nil }
+
+            guard let c3 = data.nextCharacter() else { return nil }
+            guard c3 == "u" || c3 == "U" else { return nil }
+
+            guard let c4 = data.nextCharacter() else { return nil }
+            guard c4 == "e" || c4 == "E" else { return nil }
+
+            // End of file reached
+            guard let nextChar = data.nextCharacter() else { return true }
+
+            switch nextChar {
+            case " ", "/", "\n":
+                return true
+            default:
+                return nil
+            }
+        case .f:
+            guard let c2 = data.nextCharacter() else { return nil }
+            guard c2 == "a" || c2 == "A" else { return nil }
+
+            guard let c3 = data.nextCharacter() else { return nil }
+            guard c3 == "l" || c3 == "L" else { return nil }
+
+            guard let c4 = data.nextCharacter() else { return nil }
+            guard c4 == "s" || c4 == "S" else { return nil }
+
+            guard let c5 = data.nextCharacter() else { return nil }
+            guard c5 == "e" || c5 == "E" else { return nil }
+
+            // End of file reached
+            guard let nextChar = data.nextCharacter() else { return false }
+
+            switch nextChar {
+            case " ", "/", "\n":
+                return false
+            default:
+                return nil
+            }
+        }
+    }
+}
+
 extension KVBlockParser.ValueParser.EnvParser {}
 
 extension KVBlock.KVLine.Value: Equatable {}

@@ -63,4 +63,29 @@ final class KVLineValueTests: XCTestCase {
         XCTAssertEqual(result10, nil)
         XCTAssertEqual(result11, .double(-964))
     }
+
+    func testBoolParser() throws {
+        let parser = KVBlockParser.ValueParser.BoolParser()
+
+        let data1 = DataSource("true")
+        let data2 = DataSource("false ")
+        let data3 = DataSource("tRuE\n")
+        let data4 = DataSource("FALSE/")
+        let data5 = DataSource("tru ")
+        let data6 = DataSource("false- ")
+
+        let result1 = parser.parse(data1, firstCharacter: .t)
+        let result2 = parser.parse(data2, firstCharacter: .f)
+        let result3 = parser.parse(data3, firstCharacter: .t)
+        let result4 = parser.parse(data4, firstCharacter: .f)
+        let result5 = parser.parse(data5, firstCharacter: .t)
+        let result6 = parser.parse(data6, firstCharacter: .f)
+
+        XCTAssertEqual(result1, true)
+        XCTAssertEqual(result2, false)
+        XCTAssertEqual(result3, true)
+        XCTAssertEqual(result4, false)
+        XCTAssertEqual(result5, nil)
+        XCTAssertEqual(result6, nil)
+    }
 }
