@@ -79,7 +79,7 @@ struct KVBlockParser: Parser {
     mutating func parse(_ data: DataSource) -> ParseResult<KVBlock> {
         let position = data.curentPosition
 
-        return .withErrors(result: nil, errors: [.init(message: "Not implemented", line: 1, col: 1)])
+        return .withErrors(result: nil, warnings: [], errors: [.init(message: "Not implemented", line: 1, col: 1)])
     }
 
     private mutating func parseLine(_ data: DataSource) -> KVBlock.KVLine? {
@@ -164,9 +164,16 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
     /// Extracts the string contents until an unescaped quotation symbol is enountered
     /// It will return 'nil' if the new line or the end of data are encountered before the end of quoted string is reached
     /// Unlike most other parser, quoted string parser does test the next symbol after the closing quotes
-    func parse(_ data: DataSource) -> String? {
+    /// In addition, the data source must be pointing at the opening quotation marks before parsing
+    func parse(_ data: DataSource) -> ParseResult<String> {
         var state: State = .normal
         var buffer = ""
+
+        var controlCharactersDetected = false
+        let startPosition = data.curentPosition
+        let warnings: [CodeReference] = [
+            .init(message: "Control characters were detected and skipped in the quoted string", line: startPosition.line, col: startPosition.col),
+        ]
 
         func updateStateAndContinue(with c: Character) -> Bool {
             switch state {
@@ -177,7 +184,7 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
                 case "\"":
                     return false
                 case c where c.isControl:
-                    ()
+                    controlCharactersDetected = true
                 default:
                     buffer.append(c)
                 }
@@ -189,6 +196,7 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
                     buffer.append("\"")
                 case c where c.isControl:
                     buffer.append("\\")
+                    controlCharactersDetected = true
                 default:
                     buffer.append("\\")
                     buffer.append(c)
@@ -199,14 +207,30 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
         }
 
         while let c = data.nextCharacter() {
-            guard !c.isNewline else { return nil }
+            guard !c.isNewline else {
+                let warnings: [CodeReference] = if controlCharactersDetected {
+                    warnings
+                } else {
+                    []
+                }
+                return .withErrors(result: buffer, warnings: warnings, errors: [data.error(message: "New lines are not allowed inside the quoted strings")])
+            }
 
             // Because we have discarded the new line characters
             // it will only stop when the closing quotation mark is encoutnered
-            guard updateStateAndContinue(with: c) else { return buffer }
+            guard updateStateAndContinue(with: c) else {
+                let warnings: [CodeReference] = if controlCharactersDetected {
+                    warnings
+                } else {
+                    []
+                }
+                return .withSuccess(result: buffer, warnings: warnings)
+            }
         }
 
-        return nil
+        return .withErrors(result: buffer, warnings: controlCharactersDetected ? warnings : [], errors: [
+            .init(message: "End of stream is encountered before the end of quoted string", line: startPosition.line, col: startPosition.col),
+        ])
     }
 }
 
@@ -354,7 +378,11 @@ extension KVBlockParser.ValueParser.EnvParser {
 
         guard let c5 = data.currentCharacter, c5 == "\"" else { return nil }
 
-        guard let content = KVBlockParser.ValueParser.QuotedStringParser().parse(data) else { return nil }
+        let content = KVBlockParser.ValueParser.QuotedStringParser().parse(data)
+
+        guard case let .withSuccess(content, _) = content else {
+            return nil
+        }
 
         data.skipWhiteSpaces()
 

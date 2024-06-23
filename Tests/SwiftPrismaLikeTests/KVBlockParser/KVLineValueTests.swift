@@ -5,30 +5,61 @@ final class KVLineValueTests: XCTestCase {
     func testQuotedParser() throws {
         let parser = KVBlockParser.ValueParser.QuotedStringParser()
 
-        let data1 = "a\\\"b1j_kf3 👍"
-        let source1 = DataSource("\"\(data1)\" \\ \n")
-        let result1 = parser.parse(source1)
+        let data1 = DataSource("\"a\\\"b1j_kf3 👍\" \\ \n")
+        let result1 = parser.parse(data1)
 
-        XCTAssertEqual(result1, "a\"b1j_kf3 👍")
+        XCTAssertEqual(result1, .withSuccess(result: "a\"b1j_kf3 👍", warnings: []))
 
-        let data2 = "af v\n"
-        let source2 = DataSource("\(data2)\" \n")
-        let result2 = parser.parse(source2)
+        let data2 = DataSource("\"af v\n\" \n")
+        let result2 = parser.parse(data2)
 
-        XCTAssertEqual(result2, nil)
+        XCTAssertEqual(result2, .withErrors(result: "af v", warnings: [], errors: [
+            .init(message: "New lines are not allowed inside the quoted strings", line: 1, col: 6),
+        ]))
 
-        let data3 = "\" he\u{1b}llo\\n"
-        let source3 = DataSource("\(data3)\"")
-        let result3 = parser.parse(source3)
+        let data3 = DataSource("_\" he\u{1b}llo\\n\"")
+        data3.nextPos()
+        let result3 = parser.parse(data3)
 
-        XCTAssertEqual(result3, " hello\\n")
+        XCTAssertEqual(result3, .withSuccess(result: " hello\\n", warnings: [
+            .init(message: "Control characters were detected and skipped in the quoted string", line: 1, col: 2),
+        ]))
 
-        let source4 = DataSource("\"hello\"-")
-        let result4 = parser.parse(source4)
+        let data4 = DataSource("\"hello\"-")
+        let result4 = parser.parse(data4)
 
-        XCTAssertEqual(result4, "hello")
-        XCTAssertEqual(source4.currentCol, 7)
-        XCTAssertEqual(source4.currentCharacter, "\"")
+        XCTAssertEqual(result4, .withSuccess(result: "hello", warnings: []))
+        XCTAssertEqual(data4.currentCol, 7)
+        XCTAssertEqual(data4.currentCharacter, "\"")
+
+        let data5 = DataSource("\"hello")
+        let result5 = parser.parse(data5)
+
+        XCTAssertEqual(result5, .withErrors(result: "hello", warnings: [], errors: [
+            .init(message: "End of stream is encountered before the end of quoted string", line: 1, col: 1),
+        ]))
+
+        let data6 = DataSource("_\"hello\"  \n    \"su\u{1b}\u{1b}per")
+
+        data6.nextPos()
+        let result6A = parser.parse(data6)
+
+        XCTAssertEqual(result6A, .withSuccess(result: "hello", warnings: []))
+        XCTAssertEqual(data6.currentCol, 8)
+        XCTAssertEqual(data6.currentLine, 1)
+        XCTAssertEqual(data6.currentCharacter, "\"")
+
+        data6.skipLine()
+        data6.skipWhiteSpaces()
+        let result6B = parser.parse(data6)
+
+        XCTAssertEqual(result6B, .withErrors(result: "super", warnings: [
+            .init(message: "Control characters were detected and skipped in the quoted string", line: 2, col: 5),
+        ], errors: [
+            .init(message: "End of stream is encountered before the end of quoted string", line: 2, col: 5),
+        ]))
+        XCTAssertEqual(data6.currentCol, 13)
+        XCTAssertEqual(data6.currentLine, 2)
     }
 
     func testNumberParser() throws {

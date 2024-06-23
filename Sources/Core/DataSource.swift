@@ -1,5 +1,5 @@
 final class DataSource {
-    struct FixedPosition {
+    struct FixedPosition: Equatable {
         let pos: String.Index
         let col: Int
         let line: Int
@@ -17,6 +17,8 @@ final class DataSource {
     private(set) var currentCol = 1
     private(set) var currentLine = 1
 
+    private var newLineEncountered = false
+
     init(_ data: String) {
         self.data = data
         currentPos = data.startIndex
@@ -32,13 +34,18 @@ final class DataSource {
         guard !endReached else { return nil }
         currentPos = data.index(after: currentPos)
 
-        guard let c = currentCharacter else { return nil }
-
-        if c.isNewline {
+        if newLineEncountered {
+            newLineEncountered = false
             currentCol = 1
             currentLine += 1
         } else {
             currentCol += 1
+        }
+
+        guard let c = currentCharacter else { return nil }
+
+        if c.isNewline {
+            newLineEncountered = true
         }
 
         return c
@@ -46,17 +53,7 @@ final class DataSource {
 
     @discardableResult
     func nextPos() -> Bool {
-        guard !endReached else { return false }
-        currentPos = data.index(after: currentPos)
-
-        guard let c = currentCharacter else { return false }
-
-        if c.isNewline {
-            currentCol = 1
-            currentLine += 1
-        } else {
-            currentCol += 1
-        }
+        guard let _ = nextCharacter() else { return false }
 
         return true
     }
@@ -68,10 +65,21 @@ final class DataSource {
     }
 
     func skipLine() {
-        guard let c = currentCharacter, !c.isNewline else { return }
-        while let c = nextCharacter() {
-            guard !c.isNewline else { return }
+        guard let c = currentCharacter else { return }
+        guard !c.isNewline else {
+            nextPos()
+            return
         }
+        while let c = nextCharacter() {
+            guard !c.isNewline else {
+                nextPos()
+                return
+            }
+        }
+    }
+
+    func error(message: String) -> CodeReference {
+        .init(message: message, line: currentLine, col: currentCol)
     }
 
     var endReached: Bool {
