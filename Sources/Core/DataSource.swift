@@ -9,6 +9,10 @@ final class DataSource {
             self.col = col
             self.line = line
         }
+
+        func error(message: String) -> CodeReference {
+            .init(message: message, line: line, col: col)
+        }
     }
 
     let data: String

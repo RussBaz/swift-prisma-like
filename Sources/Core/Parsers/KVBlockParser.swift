@@ -79,11 +79,11 @@ struct KVBlockParser: Parser {
     mutating func parse(_ data: DataSource) -> ParseResult<KVBlock> {
         let position = data.curentPosition
 
-        return .withErrors(result: nil, warnings: [], errors: [.init(message: "Not implemented", line: 1, col: 1)])
+        return .withErrors(warnings: [], errors: [position.error(message: "Not implemented")])
     }
 
     private mutating func parseLine(_ data: DataSource) -> KVBlock.KVLine? {
-        guard let c = data.nextCharacter() else { return nil }
+        guard let _ = data.nextCharacter() else { return nil }
 
         return nil
     }
@@ -172,7 +172,7 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
         var controlCharactersDetected = false
         let startPosition = data.curentPosition
         let warnings: [CodeReference] = [
-            .init(message: "Control characters were detected and skipped in the quoted string", line: startPosition.line, col: startPosition.col),
+            startPosition.error(message: "Control characters were detected and skipped in the quoted string"),
         ]
 
         func updateStateAndContinue(with c: Character) -> Bool {
@@ -213,7 +213,7 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
                 } else {
                     []
                 }
-                return .withErrors(result: buffer, warnings: warnings, errors: [data.error(message: "New lines are not allowed inside the quoted strings")])
+                return .withErrors(warnings: warnings, errors: [data.error(message: "New lines are not allowed inside the quoted strings")])
             }
 
             // Because we have discarded the new line characters
@@ -228,8 +228,8 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
             }
         }
 
-        return .withErrors(result: buffer, warnings: controlCharactersDetected ? warnings : [], errors: [
-            .init(message: "End of stream is encountered before the end of quoted string", line: startPosition.line, col: startPosition.col),
+        return .withErrors(warnings: controlCharactersDetected ? warnings : [], errors: [
+            startPosition.error(message: "End of stream is encountered before the end of quoted string"),
         ])
     }
 }
@@ -244,6 +244,7 @@ extension KVBlockParser.ValueParser.NumberParser {
     enum FirstCharacterType {
         case minus
         case plus
+        case dot
         case digit(Character)
     }
 
@@ -252,13 +253,16 @@ extension KVBlockParser.ValueParser.NumberParser {
         case double(Double)
     }
 
-    func parse(_ data: DataSource, firstCharacter: FirstCharacterType) -> Output? {
+    func parse(_ data: DataSource, firstCharacter: FirstCharacterType) -> ParseResult<Output> {
         var state: State = .empty
         var buffer = if case .minus = firstCharacter { "-" } else { "" }
 
         if case let .digit(c) = firstCharacter, c.isASCIINumber {
             state = .parsingInteger
             buffer.append(c)
+        } else if case .dot = firstCharacter {
+            buffer.append(contentsOf: "0.")
+            state = .parsingDouble
         }
 
         loop: while let c = data.nextCharacter() {
@@ -267,11 +271,16 @@ extension KVBlockParser.ValueParser.NumberParser {
             switch state {
             case .empty:
                 switch c {
+                case ".":
+                    buffer.append(contentsOf: "0.")
+                    state = .parsingDouble
                 case c where c.isASCIINumber:
                     buffer.append(c)
                     state = .parsingInteger
                 default:
-                    return nil
+                    return .withErrors(warnings: [], errors: [
+                        data.error(message: "Non-numerical symbol encountered while parsing a number"),
+                    ])
                 }
             case .parsingInteger:
                 switch c {
@@ -283,7 +292,9 @@ extension KVBlockParser.ValueParser.NumberParser {
                 case c where c.isASCIINumber:
                     buffer.append(c)
                 default:
-                    return nil
+                    return .withErrors(warnings: [], errors: [
+                        data.error(message: "Non-numerical symbol encountered while parsing a number"),
+                    ])
                 }
             case .parsingDouble:
                 switch c {
@@ -292,20 +303,32 @@ extension KVBlockParser.ValueParser.NumberParser {
                 case c where c.isASCIINumber:
                     buffer.append(c)
                 default:
-                    return nil
+                    return .withErrors(warnings: [], errors: [
+                        data.error(message: "Non-numerical symbol encountered while parsing a number"),
+                    ])
                 }
             }
         }
 
         switch state {
         case .empty:
-            return nil
+            return .withErrors(warnings: [], errors: [
+                data.error(message: "End of stream encountered before any numerical symbol"),
+            ])
         case .parsingInteger:
-            guard let integer = Int(buffer) else { return nil }
-            return .integer(integer)
+            guard let integer = Int(buffer) else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Non-numerical symbol encountered while parsing a number"),
+                ])
+            }
+            return .withSuccess(result: .integer(integer), warnings: [])
         case .parsingDouble:
-            guard let double = Double(buffer) else { return nil }
-            return .double(double)
+            guard let double = Double(buffer) else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Non-numerical symbol encountered while parsing a number"),
+                ])
+            }
+            return .withSuccess(result: .double(double), warnings: [])
         }
     }
 }

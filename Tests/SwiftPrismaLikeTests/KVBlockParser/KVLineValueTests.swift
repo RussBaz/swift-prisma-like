@@ -13,7 +13,7 @@ final class KVLineValueTests: XCTestCase {
         let data2 = DataSource("\"af v\n\" \n")
         let result2 = parser.parse(data2)
 
-        XCTAssertEqual(result2, .withErrors(result: "af v", warnings: [], errors: [
+        XCTAssertEqual(result2, .withErrors(warnings: [], errors: [
             .init(message: "New lines are not allowed inside the quoted strings", line: 1, col: 6),
         ]))
 
@@ -35,7 +35,7 @@ final class KVLineValueTests: XCTestCase {
         let data5 = DataSource("\"hello")
         let result5 = parser.parse(data5)
 
-        XCTAssertEqual(result5, .withErrors(result: "hello", warnings: [], errors: [
+        XCTAssertEqual(result5, .withErrors(warnings: [], errors: [
             .init(message: "End of stream is encountered before the end of quoted string", line: 1, col: 1),
         ]))
 
@@ -53,7 +53,7 @@ final class KVLineValueTests: XCTestCase {
         data6.skipWhiteSpaces()
         let result6B = parser.parse(data6)
 
-        XCTAssertEqual(result6B, .withErrors(result: "super", warnings: [
+        XCTAssertEqual(result6B, .withErrors(warnings: [
             .init(message: "Control characters were detected and skipped in the quoted string", line: 2, col: 5),
         ], errors: [
             .init(message: "End of stream is encountered before the end of quoted string", line: 2, col: 5),
@@ -77,6 +77,9 @@ final class KVLineValueTests: XCTestCase {
         let data10 = DataSource("10no //")
         let data11 = DataSource("-964.0\n 2 ")
         let data12 = DataSource("18 // a comment")
+        let data13 = DataSource("+")
+        let data14 = DataSource("-.1")
+        let data15 = DataSource(".2 ")
 
         let result1 = parser.parse(data1, firstCharacter: .minus)
         let result2 = parser.parse(data2, firstCharacter: .digit("3"))
@@ -90,19 +93,31 @@ final class KVLineValueTests: XCTestCase {
         let result10 = parser.parse(data10, firstCharacter: .digit("1"))
         let result11 = parser.parse(data11, firstCharacter: .minus)
         let result12 = parser.parse(data12, firstCharacter: .digit("1"))
+        let result13 = parser.parse(data13, firstCharacter: .plus)
+        let result14 = parser.parse(data14, firstCharacter: .minus)
+        let result15 = parser.parse(data15, firstCharacter: .dot)
 
-        XCTAssertEqual(result1, .integer(-123))
-        XCTAssertEqual(result2, .integer(3))
-        XCTAssertEqual(result3, .double(10.01))
-        XCTAssertEqual(result4, .double(10))
-        XCTAssertEqual(result5, .integer(1))
-        XCTAssertEqual(result6, .integer(100))
-        XCTAssertEqual(result7, .double(-10.2))
-        XCTAssertEqual(result8, .integer(10))
-        XCTAssertEqual(result9, nil)
-        XCTAssertEqual(result10, nil)
-        XCTAssertEqual(result11, .double(-964))
-        XCTAssertEqual(result12, .integer(18))
+        XCTAssertEqual(result1, .withSuccess(result: .integer(-123), warnings: []))
+        XCTAssertEqual(result2, .withSuccess(result: .integer(3), warnings: []))
+        XCTAssertEqual(result3, .withSuccess(result: .double(10.01), warnings: []))
+        XCTAssertEqual(result4, .withSuccess(result: .double(10), warnings: []))
+        XCTAssertEqual(result5, .withSuccess(result: .integer(1), warnings: []))
+        XCTAssertEqual(result6, .withSuccess(result: .integer(100), warnings: []))
+        XCTAssertEqual(result7, .withSuccess(result: .double(-10.2), warnings: []))
+        XCTAssertEqual(result8, .withSuccess(result: .integer(10), warnings: []))
+        XCTAssertEqual(result9, .withErrors(warnings: [], errors: [
+            .init(message: "Non-numerical symbol encountered while parsing a number", line: 1, col: 3),
+        ]))
+        XCTAssertEqual(result10, .withErrors(warnings: [], errors: [
+            .init(message: "Non-numerical symbol encountered while parsing a number", line: 1, col: 3),
+        ]))
+        XCTAssertEqual(result11, .withSuccess(result: .double(-964), warnings: []))
+        XCTAssertEqual(result12, .withSuccess(result: .integer(18), warnings: []))
+        XCTAssertEqual(result13, .withErrors(warnings: [], errors: [
+            .init(message: "End of stream encountered before any numerical symbol", line: 1, col: 2),
+        ]))
+        XCTAssertEqual(result14, .withSuccess(result: .double(-0.1), warnings: []))
+        XCTAssertEqual(result15, .withSuccess(result: .double(0.2), warnings: []))
 
         XCTAssertEqual(data12.currentCol, 3)
         XCTAssertEqual(data12.currentCharacter, " ")

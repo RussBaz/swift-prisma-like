@@ -16,13 +16,13 @@ struct CodeReference {
 
 enum ParseResult<S> {
     case withSuccess(result: S, warnings: [CodeReference])
-    case withErrors(result: S?, warnings: [CodeReference], errors: [CodeReference])
+    case withErrors(warnings: [CodeReference], errors: [CodeReference])
 }
 
 extension ParseResult {
     var problems: [CodeReference] {
         switch self {
-        case let .withErrors(_, warnings, errors):
+        case let .withErrors(warnings, errors):
             warnings + errors
         case let .withSuccess(_, warnings):
             warnings
@@ -35,8 +35,8 @@ extension ParseResult: Equatable where S: Equatable {
         switch (lhs, rhs) {
         case let (.withSuccess(result: r1, warnings: w1), .withSuccess(result: r2, warnings: w2)):
             r1 == r2 && w1 == w2
-        case let (.withErrors(result: r1, warnings: w1, errors: e1), .withErrors(result: r2, warnings: w2, errors: e2)):
-            e1 == e2 && r1 == r2 && w1 == w2
+        case let (.withErrors(warnings: w1, errors: e1), .withErrors(warnings: w2, errors: e2)):
+            e1 == e2 && w1 == w2
         default:
             false
         }
