@@ -338,52 +338,112 @@ extension KVBlockParser.ValueParser.BoolParser {
         case t, f
     }
 
-    func parse(_ data: DataSource, firstCharacter: FirstCharacterType) -> Bool? {
+    func parse(_ data: DataSource, firstCharacter: FirstCharacterType) -> ParseResult<Bool> {
         switch firstCharacter {
         case .t:
-            guard let c2 = data.nextCharacter() else { return nil }
-            guard c2 == "r" || c2 == "R" else { return nil }
+            guard let c2 = data.nextCharacter() else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected end of stream encountered while parsing a boolean value"),
+                ])
+            }
+            guard c2 == "r" || c2 == "R" else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected symbol encoutnered while parsing a boolean value"),
+                ])
+            }
 
-            guard let c3 = data.nextCharacter() else { return nil }
-            guard c3 == "u" || c3 == "U" else { return nil }
+            guard let c3 = data.nextCharacter() else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected end of stream encountered while parsing a boolean value"),
+                ])
+            }
+            guard c3 == "u" || c3 == "U" else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected symbol encoutnered while parsing a boolean value"),
+                ])
+            }
 
-            guard let c4 = data.nextCharacter() else { return nil }
-            guard c4 == "e" || c4 == "E" else { return nil }
+            guard let c4 = data.nextCharacter() else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected end of stream encountered while parsing a boolean value"),
+                ])
+            }
+            guard c4 == "e" || c4 == "E" else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected symbol encoutnered while parsing a boolean value"),
+                ])
+            }
 
             // End of file reached
-            guard let nextChar = data.nextCharacter() else { return true }
+            guard let nextChar = data.nextCharacter() else { return .withSuccess(result: true, warnings: []) }
 
             switch nextChar {
             case " ", "/":
-                return true
+                return .withSuccess(result: true, warnings: [])
             case nextChar where nextChar.isNewline:
-                return true
+                return .withSuccess(result: true, warnings: [])
             default:
-                return nil
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected symbol encoutnered while parsing a boolean value"),
+                ])
             }
         case .f:
-            guard let c2 = data.nextCharacter() else { return nil }
-            guard c2 == "a" || c2 == "A" else { return nil }
+            guard let c2 = data.nextCharacter() else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected end of stream encountered while parsing a boolean value"),
+                ])
+            }
+            guard c2 == "a" || c2 == "A" else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected symbol encoutnered while parsing a boolean value"),
+                ])
+            }
 
-            guard let c3 = data.nextCharacter() else { return nil }
-            guard c3 == "l" || c3 == "L" else { return nil }
+            guard let c3 = data.nextCharacter() else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected end of stream encountered while parsing a boolean value"),
+                ])
+            }
+            guard c3 == "l" || c3 == "L" else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected symbol encoutnered while parsing a boolean value"),
+                ])
+            }
 
-            guard let c4 = data.nextCharacter() else { return nil }
-            guard c4 == "s" || c4 == "S" else { return nil }
+            guard let c4 = data.nextCharacter() else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected end of stream encountered while parsing a boolean value"),
+                ])
+            }
+            guard c4 == "s" || c4 == "S" else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected symbol encoutnered while parsing a boolean value"),
+                ])
+            }
 
-            guard let c5 = data.nextCharacter() else { return nil }
-            guard c5 == "e" || c5 == "E" else { return nil }
+            guard let c5 = data.nextCharacter() else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected end of stream encountered while parsing a boolean value"),
+                ])
+            }
+            guard c5 == "e" || c5 == "E" else {
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected symbol encoutnered while parsing a boolean value"),
+                ])
+            }
 
             // End of file reached
-            guard let nextChar = data.nextCharacter() else { return false }
+            guard let nextChar = data.nextCharacter() else { return .withSuccess(result: false, warnings: []) }
 
             switch nextChar {
             case " ", "/":
-                return false
+                return .withSuccess(result: false, warnings: [])
             case nextChar where nextChar.isNewline:
-                return false
+                return .withSuccess(result: false, warnings: [])
             default:
-                return nil
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected symbol encoutnered while parsing a boolean value"),
+                ])
             }
         }
     }

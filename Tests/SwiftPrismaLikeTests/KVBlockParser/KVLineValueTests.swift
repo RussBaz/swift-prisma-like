@@ -132,6 +132,7 @@ final class KVLineValueTests: XCTestCase {
         let data4 = DataSource("FALSE/")
         let data5 = DataSource("tru ")
         let data6 = DataSource("false- ")
+        let data7 = DataSource("faL")
 
         let result1 = parser.parse(data1, firstCharacter: .t)
         let result2 = parser.parse(data2, firstCharacter: .f)
@@ -139,13 +140,21 @@ final class KVLineValueTests: XCTestCase {
         let result4 = parser.parse(data4, firstCharacter: .f)
         let result5 = parser.parse(data5, firstCharacter: .t)
         let result6 = parser.parse(data6, firstCharacter: .f)
+        let result7 = parser.parse(data7, firstCharacter: .f)
 
-        XCTAssertEqual(result1, true)
-        XCTAssertEqual(result2, false)
-        XCTAssertEqual(result3, true)
-        XCTAssertEqual(result4, false)
-        XCTAssertEqual(result5, nil)
-        XCTAssertEqual(result6, nil)
+        XCTAssertEqual(result1, .withSuccess(result: true, warnings: []))
+        XCTAssertEqual(result2, .withSuccess(result: false, warnings: []))
+        XCTAssertEqual(result3, .withSuccess(result: true, warnings: []))
+        XCTAssertEqual(result4, .withSuccess(result: false, warnings: []))
+        XCTAssertEqual(result5, .withErrors(warnings: [], errors: [
+            .init(message: "Unexpected symbol encoutnered while parsing a boolean value", line: 1, col: 4),
+        ]))
+        XCTAssertEqual(result6, .withErrors(warnings: [], errors: [
+            .init(message: "Unexpected symbol encoutnered while parsing a boolean value", line: 1, col: 6),
+        ]))
+        XCTAssertEqual(result7, .withErrors(warnings: [], errors: [
+            .init(message: "Unexpected end of stream encountered while parsing a boolean value", line: 1, col: 4),
+        ]))
 
         XCTAssertEqual(data2.currentCol, 6)
         XCTAssertEqual(data2.currentCharacter, " ")
