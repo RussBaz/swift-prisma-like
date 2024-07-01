@@ -450,32 +450,61 @@ extension KVBlockParser.ValueParser.BoolParser {
 }
 
 extension KVBlockParser.ValueParser.EnvParser {
-    func parse(_ data: DataSource) -> String? {
-        guard let c2 = data.nextCharacter(), c2 == "n" else { return nil }
+    func parse(_ data: DataSource) -> ParseResult<String> {
+        guard let c2 = data.nextCharacter(), c2 == "n" else {
+            return .withErrors(warnings: [], errors: [
+                data.error(message: "Unexpected symbol encoutnered while parsing an environment variable value"),
+            ])
+        }
 
-        guard let c3 = data.nextCharacter(), c3 == "v" else { return nil }
+        guard let c3 = data.nextCharacter(), c3 == "v" else {
+            return .withErrors(warnings: [], errors: [
+                data.error(message: "Unexpected symbol encoutnered while parsing an environment variable value"),
+            ])
+        }
 
-        guard let c4 = data.nextCharacter(), c4 == "(" else { return nil }
-
-        data.skipWhiteSpaces()
-
-        guard let c5 = data.currentCharacter, c5 == "\"" else { return nil }
-
-        let content = KVBlockParser.ValueParser.QuotedStringParser().parse(data)
-
-        guard case let .withSuccess(content, _) = content else {
-            return nil
+        guard let c4 = data.nextCharacter(), c4 == "(" else {
+            return .withErrors(warnings: [], errors: [
+                data.error(message: "Unexpected symbol encoutnered while parsing an environment variable value"),
+            ])
         }
 
         data.skipWhiteSpaces()
 
-        guard let c6 = data.currentCharacter, c6 == ")" else { return nil }
+        guard let c5 = data.currentCharacter, c5 == "\"" else {
+            return .withErrors(warnings: [], errors: [
+                data.error(message: "Unexpected symbol encoutnered while parsing an environment variable value"),
+            ])
+        }
 
-        guard let c7 = data.nextCharacter() else { return content }
+        let content = KVBlockParser.ValueParser.QuotedStringParser().parse(data)
 
-        guard c7 == " " || c7 == "/" || c7.isNewline else { return nil }
+        guard case let .withSuccess(content, warnings) = content else {
+            let warnings = content.warnings
+            let errors = [
+                data.error(message: "Unexpected symbol encoutnered while parsing an environment variable name value"),
+            ] + content.errors
 
-        return content
+            return .withErrors(warnings: warnings, errors: errors)
+        }
+
+        data.skipWhiteSpaces()
+
+        guard let c6 = data.currentCharacter, c6 == ")" else {
+            return .withErrors(warnings: warnings, errors: [
+                data.error(message: "Unexpected symbol encoutnered while parsing an environment variable value"),
+            ])
+        }
+
+        guard let c7 = data.nextCharacter() else { return .withSuccess(result: content, warnings: warnings) }
+
+        guard c7 == " " || c7 == "/" || c7.isNewline else {
+            return .withErrors(warnings: warnings, errors: [
+                data.error(message: "Unexpected symbol encoutnered while parsing an environment variable value"),
+            ])
+        }
+
+        return .withSuccess(result: content, warnings: warnings)
     }
 }
 

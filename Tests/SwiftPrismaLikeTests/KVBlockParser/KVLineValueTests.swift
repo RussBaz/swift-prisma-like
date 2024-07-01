@@ -6,45 +6,23 @@ final class KVLineValueTests: XCTestCase {
         let parser = KVBlockParser.ValueParser.QuotedStringParser()
 
         let data1 = DataSource("\"a\\\"b1j_kf3 👍\" \\ \n")
-        let result1 = parser.parse(data1)
-
-        XCTAssertEqual(result1, .withSuccess(result: "a\"b1j_kf3 👍", warnings: []))
-
         let data2 = DataSource("\"af v\n\" \n")
-        let result2 = parser.parse(data2)
-
-        XCTAssertEqual(result2, .withErrors(warnings: [], errors: [
-            .init(message: "New lines are not allowed inside the quoted strings", line: 1, col: 6),
-        ]))
-
         let data3 = DataSource("_\" he\u{1b}llo\\n\"")
         data3.nextPos()
-        let result3 = parser.parse(data3)
-
-        XCTAssertEqual(result3, .withSuccess(result: " hello\\n", warnings: [
-            .init(message: "Control characters were detected and skipped in the quoted string", line: 1, col: 2),
-        ]))
-
         let data4 = DataSource("\"hello\"-")
-        let result4 = parser.parse(data4)
-
-        XCTAssertEqual(result4, .withSuccess(result: "hello", warnings: []))
-        XCTAssertEqual(data4.currentCol, 7)
-        XCTAssertEqual(data4.currentCharacter, "\"")
-
         let data5 = DataSource("\"hello")
+        let data6 = DataSource("_\"hello\"  \n    \"su\u{1b}\u{1b}per")
+        data6.nextPos()
+        let data7 = DataSource("\" he\u{1b}llo \n\" ")
+
+        let result1 = parser.parse(data1)
+        let result2 = parser.parse(data2)
+        let result3 = parser.parse(data3)
+        let result4 = parser.parse(data4)
         let result5 = parser.parse(data5)
 
-        XCTAssertEqual(result5, .withErrors(warnings: [], errors: [
-            .init(message: "End of stream is encountered before the end of quoted string", line: 1, col: 1),
-        ]))
-
-        let data6 = DataSource("_\"hello\"  \n    \"su\u{1b}\u{1b}per")
-
-        data6.nextPos()
         let result6A = parser.parse(data6)
 
-        XCTAssertEqual(result6A, .withSuccess(result: "hello", warnings: []))
         XCTAssertEqual(data6.currentCol, 8)
         XCTAssertEqual(data6.currentLine, 1)
         XCTAssertEqual(data6.currentCharacter, "\"")
@@ -52,7 +30,24 @@ final class KVLineValueTests: XCTestCase {
         data6.skipLine()
         data6.skipWhiteSpaces()
         let result6B = parser.parse(data6)
+        let result7 = parser.parse(data7)
 
+        XCTAssertEqual(result1, .withSuccess(result: "a\"b1j_kf3 👍", warnings: []))
+        XCTAssertEqual(result2, .withErrors(warnings: [], errors: [
+            .init(message: "New lines are not allowed inside the quoted strings", line: 1, col: 6),
+        ]))
+        XCTAssertEqual(result3, .withSuccess(result: " hello\\n", warnings: [
+            .init(message: "Control characters were detected and skipped in the quoted string", line: 1, col: 2),
+        ]))
+        XCTAssertEqual(result4, .withSuccess(result: "hello", warnings: []))
+        XCTAssertEqual(data4.currentCol, 7)
+        XCTAssertEqual(data4.currentCharacter, "\"")
+
+        XCTAssertEqual(result5, .withErrors(warnings: [], errors: [
+            .init(message: "End of stream is encountered before the end of quoted string", line: 1, col: 1),
+        ]))
+
+        XCTAssertEqual(result6A, .withSuccess(result: "hello", warnings: []))
         XCTAssertEqual(result6B, .withErrors(warnings: [
             .init(message: "Control characters were detected and skipped in the quoted string", line: 2, col: 5),
         ], errors: [
@@ -60,6 +55,12 @@ final class KVLineValueTests: XCTestCase {
         ]))
         XCTAssertEqual(data6.currentCol, 13)
         XCTAssertEqual(data6.currentLine, 2)
+
+        XCTAssertEqual(result7, .withErrors(warnings: [
+            .init(message: "Control characters were detected and skipped in the quoted string", line: 1, col: 1),
+        ], errors: [
+            .init(message: "New lines are not allowed inside the quoted strings", line: 1, col: 10),
+        ]))
     }
 
     func testNumberParser() throws {
@@ -169,6 +170,7 @@ final class KVLineValueTests: XCTestCase {
         let data4 = DataSource("env(\"\")\n")
         let data5 = DataSource("enve(\"1\") ")
         let data6 = DataSource("env(\"--\")- ")
+        let data7 = DataSource("env( \"18\u{1b} a\n\")")
 
         let result1 = parser.parse(data1)
         let result2 = parser.parse(data2)
@@ -176,13 +178,24 @@ final class KVLineValueTests: XCTestCase {
         let result4 = parser.parse(data4)
         let result5 = parser.parse(data5)
         let result6 = parser.parse(data6)
+        let result7 = parser.parse(data7)
 
-        XCTAssertEqual(result1, "yes?")
-        XCTAssertEqual(result2, "no 12")
-        XCTAssertEqual(result3, "\"")
-        XCTAssertEqual(result4, "")
-        XCTAssertEqual(result5, nil)
-        XCTAssertEqual(result6, nil)
+        XCTAssertEqual(result1, .withSuccess(result: "yes?", warnings: []))
+        XCTAssertEqual(result2, .withSuccess(result: "no 12", warnings: []))
+        XCTAssertEqual(result3, .withSuccess(result: "\"", warnings: []))
+        XCTAssertEqual(result4, .withSuccess(result: "", warnings: []))
+        XCTAssertEqual(result5, .withErrors(warnings: [], errors: [
+            .init(message: "Unexpected symbol encoutnered while parsing an environment variable value", line: 1, col: 4),
+        ]))
+        XCTAssertEqual(result6, .withErrors(warnings: [], errors: [
+            .init(message: "Unexpected symbol encoutnered while parsing an environment variable value", line: 1, col: 10),
+        ]))
+        XCTAssertEqual(result7, .withErrors(warnings: [
+            .init(message: "Control characters were detected and skipped in the quoted string", line: 1, col: 6),
+        ], errors: [
+            .init(message: "Unexpected symbol encoutnered while parsing an environment variable name value", line: 1, col: 12),
+            .init(message: "New lines are not allowed inside the quoted strings", line: 1, col: 12),
+        ]))
 
         XCTAssertEqual(data2.currentCol, 13)
         XCTAssertEqual(data2.currentCharacter, " ")

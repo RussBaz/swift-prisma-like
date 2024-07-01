@@ -28,6 +28,24 @@ extension ParseResult {
             warnings
         }
     }
+
+    var warnings: [CodeReference] {
+        switch self {
+        case let .withErrors(warnings, _):
+            warnings
+        case let .withSuccess(_, warnings):
+            warnings
+        }
+    }
+
+    var errors: [CodeReference] {
+        switch self {
+        case let .withErrors(_, errors):
+            errors
+        case .withSuccess:
+            []
+        }
+    }
 }
 
 extension ParseResult: Equatable where S: Equatable {
