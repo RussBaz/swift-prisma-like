@@ -152,7 +152,115 @@ extension KVBlockParser.ValueParser {
     struct BoolParser {}
     struct EnvParser {}
 
-    struct CommentParser {}
+    func parse(_ data: DataSource) -> ParseResult<KVBlock.KVLine.Value> {
+        guard let c = data.currentCharacter else {
+            return .withErrors(warnings: [], errors: [
+                data.error(message: "Unexpected end of stream encountered while parsing a KV block line value"),
+            ])
+        }
+
+        let beginning = data.curentPosition
+
+        switch c {
+        case "\"":
+            let parser = QuotedStringParser()
+            let result = parser.parse(data)
+            switch result {
+            case let .withSuccess(result: value, warnings: warnings):
+                return .withSuccess(result: .string(value), warnings: warnings)
+            case let .withErrors(warnings: warnings, errors: errors):
+                return .withErrors(warnings: warnings, errors: errors)
+            }
+        case "+":
+            let parser = NumberParser()
+            let result = parser.parse(data, firstCharacter: .plus)
+            switch result {
+            case let .withSuccess(result: value, warnings: warnings):
+                switch value {
+                case let .integer(value):
+                    return .withSuccess(result: .integer(value), warnings: warnings)
+                case let .double(value):
+                    return .withSuccess(result: .number(value), warnings: warnings)
+                }
+            case let .withErrors(warnings: warnings, errors: errors):
+                return .withErrors(warnings: warnings, errors: errors)
+            }
+        case "-":
+            let parser = NumberParser()
+            let result = parser.parse(data, firstCharacter: .minus)
+            switch result {
+            case let .withSuccess(result: value, warnings: warnings):
+                switch value {
+                case let .integer(value):
+                    return .withSuccess(result: .integer(value), warnings: warnings)
+                case let .double(value):
+                    return .withSuccess(result: .number(value), warnings: warnings)
+                }
+            case let .withErrors(warnings: warnings, errors: errors):
+                return .withErrors(warnings: warnings, errors: errors)
+            }
+        case ".":
+            let parser = NumberParser()
+            let result = parser.parse(data, firstCharacter: .dot)
+            switch result {
+            case .withSuccess(result: let value, warnings: var warnings):
+                switch value {
+                case let .integer(value):
+                    warnings.append(beginning.error(message: "Expected a floating point number but an integer was received."))
+                    return .withSuccess(result: .integer(value), warnings: warnings)
+                case let .double(value):
+                    return .withSuccess(result: .number(value), warnings: warnings)
+                }
+            case let .withErrors(warnings: warnings, errors: errors):
+                return .withErrors(warnings: warnings, errors: errors)
+            }
+        case c where c.isASCIINumber:
+            let parser = NumberParser()
+            let result = parser.parse(data, firstCharacter: .digit(c))
+            switch result {
+            case let .withSuccess(result: value, warnings: warnings):
+                switch value {
+                case let .integer(value):
+                    return .withSuccess(result: .integer(value), warnings: warnings)
+                case let .double(value):
+                    return .withSuccess(result: .number(value), warnings: warnings)
+                }
+            case let .withErrors(warnings: warnings, errors: errors):
+                return .withErrors(warnings: warnings, errors: errors)
+            }
+        case "t", "T":
+            let parser = BoolParser()
+            let result = parser.parse(data, firstCharacter: .t)
+            switch result {
+            case let .withSuccess(result: value, warnings: warnings):
+                return .withSuccess(result: .boolean(value), warnings: warnings)
+            case let .withErrors(warnings: warnings, errors: errors):
+                return .withErrors(warnings: warnings, errors: errors)
+            }
+        case "f", "F":
+            let parser = BoolParser()
+            let result = parser.parse(data, firstCharacter: .f)
+            switch result {
+            case let .withSuccess(result: value, warnings: warnings):
+                return .withSuccess(result: .boolean(value), warnings: warnings)
+            case let .withErrors(warnings: warnings, errors: errors):
+                return .withErrors(warnings: warnings, errors: errors)
+            }
+        case "e":
+            let parser = EnvParser()
+            let result = parser.parse(data)
+            switch result {
+            case let .withSuccess(result: value, warnings: warnings):
+                return .withSuccess(result: .env(value), warnings: warnings)
+            case let .withErrors(warnings: warnings, errors: errors):
+                return .withErrors(warnings: warnings, errors: errors)
+            }
+        default:
+            return .withErrors(warnings: [], errors: [
+                data.error(message: "Unexpected symbol encoutnered while parsing a KV block line value"),
+            ])
+        }
+    }
 }
 
 extension KVBlockParser.ValueParser.QuotedStringParser {
@@ -481,9 +589,9 @@ extension KVBlockParser.ValueParser.EnvParser {
 
         guard case let .withSuccess(content, warnings) = content else {
             let warnings = content.warnings
-            let errors = [
+            let errors = content.errors + [
                 data.error(message: "Unexpected symbol encoutnered while parsing an environment variable name value"),
-            ] + content.errors
+            ]
 
             return .withErrors(warnings: warnings, errors: errors)
         }
