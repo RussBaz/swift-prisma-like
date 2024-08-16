@@ -62,24 +62,34 @@ final class DataSource {
         return true
     }
 
-    func skipWhiteSpaces() {
+    @discardableResult
+    func skipWhiteSpaces() -> Character? {
         while let c = nextCharacter() {
-            guard c == " " else { return }
+            guard c == " " else { return c }
         }
+
+        return nil
     }
 
-    func skipLine() {
-        guard let c = currentCharacter else { return }
+    @discardableResult
+    func skipLine() -> String {
+        guard let c = currentCharacter else { return "" }
         guard !c.isNewline else {
             nextPos()
-            return
+            return ""
         }
+        var buffer = "\(c)"
+
         while let c = nextCharacter() {
             guard !c.isNewline else {
                 nextPos()
-                return
+                return buffer
             }
+
+            buffer.append(c)
         }
+
+        return buffer
     }
 
     func error(message: String) -> CodeReference {

@@ -124,6 +124,7 @@ extension KVBlockParser {
     }
 
     struct ValueParser {}
+    struct CommentsParser {}
 }
 
 extension KVBlockParser.ValueParser {
@@ -613,6 +614,33 @@ extension KVBlockParser.ValueParser.EnvParser {
         }
 
         return .withSuccess(result: content, warnings: warnings)
+    }
+}
+
+extension KVBlockParser.CommentsParser {
+    func parse(_ data: DataSource) -> ParseResult<String?> {
+        let first = data.nextCharacter()
+
+        guard first == "/" else {
+            return .withErrors(warnings: [], errors: [data.error(message: "Unexpected symbol encoutnered while parsing a comment opening")])
+        }
+
+        let second = data.nextCharacter()
+
+        guard let second else {
+            return .withSuccess(result: nil, warnings: [])
+        }
+
+        guard second == "/" else {
+            data.skipLine()
+            return .withSuccess(result: nil, warnings: [])
+        }
+
+        data.nextPos()
+
+        let buffer = data.skipLine().trimmingCharacters(in: .whitespaces)
+
+        return .withSuccess(result: buffer, warnings: [])
     }
 }
 
