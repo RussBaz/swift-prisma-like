@@ -125,6 +125,7 @@ extension KVBlockParser {
 
     struct ValueParser {}
     struct CommentsParser {}
+    struct KeyParser {}
 }
 
 extension KVBlockParser.ValueParser {
@@ -641,6 +642,43 @@ extension KVBlockParser.CommentsParser {
         let buffer = data.skipLine().trimmingCharacters(in: .whitespaces)
 
         return .withSuccess(result: buffer, warnings: [])
+    }
+}
+
+extension KVBlockParser.KeyParser {
+    func parse(_ data: DataSource, firstCharacter: Character) -> ParseResult<String> {
+        var buffer = "\(firstCharacter)"
+
+        while let c = data.nextCharacter() {
+            switch c {
+            case " ":
+                let next = data.skipWhiteSpaces()
+                guard next == "=" else {
+                    return .withErrors(warnings: [], errors: [
+                        data.error(message: "Unexpected symbol encoutnered while looking for '=' sign"),
+                    ])
+                }
+                data.nextPos()
+                return .withSuccess(result: buffer, warnings: [])
+            case "=":
+                data.nextPos()
+                return .withSuccess(result: buffer, warnings: [])
+            case "\n":
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected end of line encoutnered while parsing a key value"),
+                ])
+            case c where c.isWord:
+                buffer.append(c)
+            default:
+                return .withErrors(warnings: [], errors: [
+                    data.error(message: "Unexpected symbol encoutnered while parsing a key value"),
+                ])
+            }
+        }
+
+        return .withErrors(warnings: [], errors: [
+            data.error(message: "Unexpected end of stream encountered while parsing a key value"),
+        ])
     }
 }
 

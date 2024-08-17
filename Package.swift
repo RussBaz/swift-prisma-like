@@ -14,7 +14,7 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.4.0"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
         .package(url: "https://github.com/vapor/sql-kit.git", from: "3.31.1"),
         .package(url: "https://github.com/vapor/sqlite-kit.git", from: "4.5.2"),
     ],
