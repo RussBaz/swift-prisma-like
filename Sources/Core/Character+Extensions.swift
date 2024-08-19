@@ -21,4 +21,10 @@ extension Character {
 
         return value == 95 || (value > 96 && value < 123) || (value > 64 && value < 91) || (value > 47 && value < 58)
     }
+
+    var isSpace: Bool {
+        guard let value = asciiValue else { return false }
+
+        return value == 32
+    }
 }

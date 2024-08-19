@@ -1,5 +1,5 @@
 {
-  "originHash" : "d7f3826e4fa0c8c89341946ad7b75f728144e07e8164e37ebed56b5773c16997",
+  "originHash" : "6f72a1bd2b31f9742bf528f774854c648f105b90e32476b695f195c30c357d99",
   "pins" : [
     {
       "identity" : "async-kit",
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/vapor/sqlite-nio.git",
       "state" : {
-        "revision" : "1b03dafcd8b86047650925325a2bd4d20f6205fd",
-        "version" : "1.10.1"
+        "revision" : "feb314669f1d7424543fb4fdd6711aa85dca865b",
+        "version" : "1.10.2"
       }
     },
     {

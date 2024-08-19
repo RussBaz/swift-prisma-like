@@ -15,6 +15,7 @@ final class KVCommentsTests: XCTestCase {
         let data8 = DataSource("/error")
         let data9 = DataSource("   ///  This is a new comment    ")
         data9.skipWhiteSpaces()
+        let data10 = DataSource("/// hello\n")
 
         let result1 = parser.parse(data1)
         let result2 = parser.parse(data2)
@@ -25,6 +26,7 @@ final class KVCommentsTests: XCTestCase {
         let result7 = parser.parse(data7)
         let result8 = parser.parse(data8)
         let result9 = parser.parse(data9)
+        let result10 = parser.parse(data10)
 
         XCTAssertEqual(result1, .withSuccess(result: nil, warnings: []))
         XCTAssertEqual(data1.currentLine, 1)
@@ -65,5 +67,9 @@ final class KVCommentsTests: XCTestCase {
         XCTAssertEqual(result9, .withSuccess(result: "This is a new comment", warnings: []))
         XCTAssertEqual(data9.currentLine, 1)
         XCTAssertEqual(data9.currentCol, 34)
+
+        XCTAssertEqual(result10, .withSuccess(result: "hello", warnings: []))
+        XCTAssertEqual(data10.currentLine, 2)
+        XCTAssertEqual(data10.currentCol, 1)
     }
 }

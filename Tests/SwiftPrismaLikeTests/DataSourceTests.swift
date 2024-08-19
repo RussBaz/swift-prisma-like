@@ -151,67 +151,81 @@ final class DataSourceTests: XCTestCase {
     }
 
     func testSkippingWhiteSpaces() throws {
-        let data = DataSource("h  1\n 2 \na  \n")
+        let data1 = DataSource("h  1\n 2 \na  \n")
+        let data2 = DataSource("    world \n")
+        let data3 = DataSource("help")
 
-        let result1 = data.skipWhiteSpaces()
+        let result1 = data1.skipWhiteSpaces()
 
-        XCTAssertEqual(data.currentCharacter, "1")
-        XCTAssertEqual(result1, data.currentCharacter)
-        XCTAssertEqual(data.currentCol, 4)
-        XCTAssertEqual(data.currentLine, 1)
+        XCTAssertEqual(data1.currentCharacter, "1")
+        XCTAssertEqual(result1, data1.currentCharacter)
+        XCTAssertEqual(data1.currentCol, 4)
+        XCTAssertEqual(data1.currentLine, 1)
 
-        data.nextPos()
-        data.nextPos()
-        let result2 = data.skipWhiteSpaces()
+        data1.nextPos()
+        data1.nextPos()
+        let result2 = data1.skipWhiteSpaces()
 
-        XCTAssertEqual(data.currentCharacter, "2")
-        XCTAssertEqual(result2, data.currentCharacter)
-        XCTAssertEqual(data.currentCol, 2)
-        XCTAssertEqual(data.currentLine, 2)
+        XCTAssertEqual(data1.currentCharacter, "2")
+        XCTAssertEqual(result2, data1.currentCharacter)
+        XCTAssertEqual(data1.currentCol, 2)
+        XCTAssertEqual(data1.currentLine, 2)
 
-        data.nextPos()
-        let result3 = data.skipWhiteSpaces()
+        data1.nextPos()
+        let result3 = data1.skipWhiteSpaces()
 
-        XCTAssertEqual(data.currentCharacter, "\n")
-        XCTAssertEqual(result3, data.currentCharacter)
-        XCTAssertEqual(data.currentCol, 4)
-        XCTAssertEqual(data.currentLine, 2)
+        XCTAssertEqual(data1.currentCharacter, "\n")
+        XCTAssertEqual(result3, data1.currentCharacter)
+        XCTAssertEqual(data1.currentCol, 4)
+        XCTAssertEqual(data1.currentLine, 2)
 
-        let result4 = data.skipWhiteSpaces()
+        let result4 = data1.skipWhiteSpaces()
 
-        XCTAssertEqual(data.currentCharacter, "a")
-        XCTAssertEqual(result4, data.currentCharacter)
-        XCTAssertEqual(data.currentCol, 1)
-        XCTAssertEqual(data.currentLine, 3)
+        XCTAssertEqual(data1.currentCharacter, "a")
+        XCTAssertEqual(result4, data1.currentCharacter)
+        XCTAssertEqual(data1.currentCol, 1)
+        XCTAssertEqual(data1.currentLine, 3)
 
-        data.nextPos()
-        let result5 = data.skipWhiteSpaces()
+        data1.nextPos()
+        let result5 = data1.skipWhiteSpaces()
 
-        XCTAssertEqual(data.currentCharacter, "\n")
-        XCTAssertEqual(result5, data.currentCharacter)
-        XCTAssertEqual(data.currentCol, 4)
-        XCTAssertEqual(data.currentLine, 3)
+        XCTAssertEqual(data1.currentCharacter, "\n")
+        XCTAssertEqual(result5, data1.currentCharacter)
+        XCTAssertEqual(data1.currentCol, 4)
+        XCTAssertEqual(data1.currentLine, 3)
 
-        let result6 = data.skipWhiteSpaces()
+        let result6 = data1.skipWhiteSpaces()
 
-        XCTAssertNil(data.currentCharacter)
-        XCTAssertEqual(result6, data.currentCharacter)
-        XCTAssertEqual(data.currentCol, 1)
-        XCTAssertEqual(data.currentLine, 4)
+        XCTAssertNil(data1.currentCharacter)
+        XCTAssertEqual(result6, data1.currentCharacter)
+        XCTAssertEqual(data1.currentCol, 1)
+        XCTAssertEqual(data1.currentLine, 4)
 
-        let result7 = data.skipWhiteSpaces()
+        let result7 = data1.skipWhiteSpaces()
 
-        XCTAssertNil(data.currentCharacter)
+        XCTAssertNil(data1.currentCharacter)
         XCTAssertNil(result7)
-        XCTAssertEqual(data.currentCol, 1)
-        XCTAssertEqual(data.currentLine, 4)
+        XCTAssertEqual(data1.currentCol, 1)
+        XCTAssertEqual(data1.currentLine, 4)
 
-        let result8 = data.skipWhiteSpaces()
+        let result8 = data1.skipWhiteSpaces()
 
-        XCTAssertNil(data.currentCharacter)
+        XCTAssertNil(data1.currentCharacter)
         XCTAssertNil(result8)
-        XCTAssertEqual(data.currentCol, 1)
-        XCTAssertEqual(data.currentLine, 4)
+        XCTAssertEqual(data1.currentCol, 1)
+        XCTAssertEqual(data1.currentLine, 4)
+
+        let result9 = data2.skipWhiteSpaces()
+
+        XCTAssertEqual(result9, "w")
+        XCTAssertEqual(data2.currentCol, 5)
+        XCTAssertEqual(data2.currentLine, 1)
+
+        let result10 = data3.skipWhiteSpaces()
+
+        XCTAssertEqual(result10, "e")
+        XCTAssertEqual(data3.currentCol, 2)
+        XCTAssertEqual(data3.currentLine, 1)
     }
 
     func testSkipLines() throws {

@@ -82,10 +82,27 @@ struct KVBlockParser: Parser {
         return .withErrors(warnings: [], errors: [position.error(message: "Not implemented")])
     }
 
-    private mutating func parseLine(_ data: DataSource) -> KVBlock.KVLine? {
-        guard let _ = data.nextCharacter() else { return nil }
+    private mutating func parseLine(_ data: DataSource) -> ParseResult<KVBlock.KVLine?> {
+        guard let c = data.skipWhiteSpaces() else {
+            return .withErrors(warnings: [], errors: [data.error(message: "Unexpected end of stream encountered while parsing a KV block line")])
+        }
 
-        return nil
+        switch c {
+        case "/": // Comment block start found
+            let parser = KVBlockParser.CommentsParser()
+            let comment = parser.parse(data)
+            ()
+        case "\n": // Empty line found
+            ()
+        case "}": // End of block found
+            ()
+        case c where c.isWord: // Key start found
+            ()
+        default: // Unexpected symbol
+            ()
+        }
+
+        return .withSuccess(result: nil, warnings: [])
     }
 }
 
@@ -126,6 +143,7 @@ extension KVBlockParser {
     struct ValueParser {}
     struct CommentsParser {}
     struct KeyParser {}
+    struct KeyValueParser {}
 }
 
 extension KVBlockParser.ValueParser {
@@ -273,7 +291,7 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
 
     /// Extracts the string contents until an unescaped quotation symbol is enountered
     /// It will return 'nil' if the new line or the end of data are encountered before the end of quoted string is reached
-    /// Unlike most other parser, quoted string parser does test the next symbol after the closing quotes
+    /// Unlike most other parser, quoted string parser does not test the next symbol after the closing quotes
     /// In addition, the data source must be pointing at the opening quotation marks before parsing
     func parse(_ data: DataSource) -> ParseResult<String> {
         var state: State = .normal
@@ -334,6 +352,7 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
                 } else {
                     []
                 }
+                data.nextPos()
                 return .withSuccess(result: buffer, warnings: warnings)
             }
         }
@@ -598,7 +617,9 @@ extension KVBlockParser.ValueParser.EnvParser {
             return .withErrors(warnings: warnings, errors: errors)
         }
 
-        data.skipWhiteSpaces()
+        if let c = data.currentCharacter, c.isSpace {
+            data.skipWhiteSpaces()
+        }
 
         guard let c6 = data.currentCharacter, c6 == ")" else {
             return .withErrors(warnings: warnings, errors: [
@@ -608,7 +629,7 @@ extension KVBlockParser.ValueParser.EnvParser {
 
         guard let c7 = data.nextCharacter() else { return .withSuccess(result: content, warnings: warnings) }
 
-        guard c7 == " " || c7 == "/" || c7.isNewline else {
+        guard c7 == " " || c7 == "/" || c7 == "\n" || c7 == "}" else {
             return .withErrors(warnings: warnings, errors: [
                 data.error(message: "Unexpected symbol encoutnered while parsing an environment variable value"),
             ])
@@ -682,6 +703,105 @@ extension KVBlockParser.KeyParser {
     }
 }
 
+extension KVBlockParser.KeyValueParser {
+    enum KVLineResult {
+        case newLine(KVBlock.KVLine)
+        case endOfBlock(KVBlock.KVLine)
+    }
+
+    func parse(_ data: DataSource, firstCharacter: Character) -> ParseResult<KVLineResult> {
+        let keyParser = KVBlockParser.KeyParser()
+        let key = keyParser.parse(data, firstCharacter: firstCharacter)
+
+        guard case let .withSuccess(keyContent, warnings) = key else {
+            return .withErrors(warnings: key.warnings, errors: key.errors)
+        }
+
+        var allWarnings = warnings
+
+        if let c = data.currentCharacter, c.isSpace {
+            data.skipWhiteSpaces()
+        }
+
+        let valueParser = KVBlockParser.ValueParser()
+        let value = valueParser.parse(data)
+
+        guard case let .withSuccess(valueContent, warnings) = value else {
+            return .withErrors(warnings: allWarnings + value.warnings, errors: value.errors)
+        }
+
+        allWarnings.append(contentsOf: warnings)
+
+        if let c = data.currentCharacter, c.isSpace {
+            data.skipWhiteSpaces()
+        }
+
+        guard let c = data.currentCharacter else {
+            return .withErrors(warnings: allWarnings, errors: [
+                data.error(message: "Unexpected end of stream encountered while parsing a KV line"),
+            ])
+        }
+
+        switch c {
+        case "\n":
+            data.nextPos()
+            return .withSuccess(result: .newLine(.init(key: keyContent, value: valueContent)), warnings: allWarnings)
+        case "}":
+            let next = data.nextCharacter()
+            guard next == nil || next == "\n" || next == " " else {
+                return .withErrors(warnings: allWarnings, errors: [
+                    data.error(message: "Unexpected symbol encoutnered while parsing a KV line"),
+                ])
+            }
+            switch next {
+            case nil:
+                return .withSuccess(result: .endOfBlock(.init(key: keyContent, value: valueContent)), warnings: allWarnings)
+            case "\n":
+                data.nextPos()
+                return .withSuccess(result: .endOfBlock(.init(key: keyContent, value: valueContent)), warnings: allWarnings)
+            case " ":
+                if let c = data.skipWhiteSpaces() {
+                    if c == "\n" {
+                        data.nextPos()
+                    } else {
+                        allWarnings.append(data.error(message: "Unexpected symbols encountered and skipped after parsing a KV line"))
+                        data.skipLine()
+                    }
+                }
+
+                return .withSuccess(result: .endOfBlock(.init(key: keyContent, value: valueContent)), warnings: allWarnings)
+            default:
+                return .withErrors(warnings: allWarnings, errors: [
+                    data.error(message: "Unexpected symbol encoutnered while parsing a KV line"),
+                ])
+            }
+        case "/":
+            let commentsParser = KVBlockParser.CommentsParser()
+            let comment = commentsParser.parse(data)
+            switch comment {
+            case let .withSuccess(result, warnings):
+                let result: [String]? = if let result { [result] } else { nil }
+                return .withSuccess(result: .newLine(.init(key: keyContent, value: valueContent, comments: result)), warnings: allWarnings + warnings)
+            case let .withErrors(warnings, errors):
+                return .withErrors(warnings: allWarnings + warnings, errors: errors)
+            }
+        default:
+            return .withErrors(warnings: allWarnings, errors: [
+                data.error(message: "Unexpected symbol encoutnered while parsing a KV line"),
+            ])
+        }
+    }
+}
+
+extension KVBlock.KVLine {
+    init(key: String, value: KVBlock.KVLine.Value, comments: [String]? = nil) {
+        self.key = key
+        self.value = value
+        self.comments = comments ?? []
+    }
+}
+
 extension KVBlock.KVLine.Value: Equatable {}
 extension KVBlock.KVLine: Equatable {}
 extension KVBlock: Equatable {}
+extension KVBlockParser.KeyValueParser.KVLineResult: Equatable {}
