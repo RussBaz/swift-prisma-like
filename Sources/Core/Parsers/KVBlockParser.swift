@@ -40,50 +40,94 @@ struct KVBlock {
 }
 
 struct KVBlockParser: Parser {
+    enum KVLineResult {
+        case newLine(KVLineType)
+        case endOfBlock(KVLineType)
+    }
+
+    enum KVLineType {
+        case comment(String)
+        case kv(KVBlock.KVLine)
+        case empty
+    }
+
     let name: String
     let blockComments: [String]
 
-    var nextKey: String
-    var nextValue: String
-    var nextComment: String
     var accumulatedComments: [String]
-    var envVariable: Bool
 
-    var state: State
-
+    var warnings: [CodeReference]
     var lines: [KVBlock.KVLine]
 
     init(name blockName: String, comments: [String]) {
         name = blockName
         blockComments = comments
 
-        nextKey = ""
-        nextValue = ""
-        nextComment = ""
-        state = .lookingForKey
+        warnings = []
         lines = []
         accumulatedComments = []
-        envVariable = false
     }
 
     mutating func resetState() {
-        nextKey = ""
-        nextValue = ""
-        nextComment = ""
-        state = .lookingForKey
+        warnings = []
         lines = []
         accumulatedComments = []
-        envVariable = false
     }
 
     mutating func parse(_ data: DataSource) -> ParseResult<KVBlock> {
-        let position = data.curentPosition
+        var running = true
 
-        return .withErrors(warnings: [], errors: [position.error(message: "Not implemented")])
+        while running {
+            let line = parseLine(data)
+            switch line {
+            case let .withSuccess(result, warnings):
+                self.warnings.append(contentsOf: warnings)
+                switch result {
+                case let .endOfBlock(type):
+                    running = false
+                    switch type {
+                    case let .comment(value):
+                        accumulatedComments.append(value)
+                    case .empty:
+                        () // do nothing
+                    case let .kv(value):
+                        lines.append(.init(key: value.key, value: value.value, comments: accumulatedComments + value.comments))
+                        accumulatedComments = []
+                    }
+                case let .newLine(type):
+                    switch type {
+                    case let .comment(value):
+                        accumulatedComments.append(value)
+                    case .empty:
+                        () // do nothing
+                    case let .kv(value):
+                        lines.append(.init(key: value.key, value: value.value, comments: accumulatedComments + value.comments))
+                        accumulatedComments = []
+                    }
+                }
+            case let .withErrors(warnings, errors):
+                running = false
+                return .withErrors(warnings: self.warnings + warnings, errors: errors)
+            }
+        }
+
+        let r = KVBlock(name: name, lines: lines, comments: blockComments)
+
+        return .withSuccess(result: r, warnings: warnings)
     }
 
-    private mutating func parseLine(_ data: DataSource) -> ParseResult<KVBlock.KVLine?> {
-        guard let c = data.skipWhiteSpaces() else {
+    mutating func parseLine(_ data: DataSource) -> ParseResult<KVLineResult> {
+        guard let firstCharacter = data.currentCharacter else {
+            return .withErrors(warnings: [], errors: [data.error(message: "Unexpected end of stream encountered while parsing a KV block line")])
+        }
+
+        let c = if firstCharacter == " " {
+            data.skipWhiteSpaces()
+        } else {
+            firstCharacter
+        }
+
+        guard let c else {
             return .withErrors(warnings: [], errors: [data.error(message: "Unexpected end of stream encountered while parsing a KV block line")])
         }
 
@@ -91,18 +135,41 @@ struct KVBlockParser: Parser {
         case "/": // Comment block start found
             let parser = KVBlockParser.CommentsParser()
             let comment = parser.parse(data)
-            ()
+            switch comment {
+            case let .withSuccess(result, warnings):
+                if let result {
+                    return .withSuccess(result: .newLine(.comment(result)), warnings: warnings)
+                } else {
+                    return .withSuccess(result: .newLine(.empty), warnings: warnings)
+                }
+            case let .withErrors(warnings, errors):
+                return .withErrors(warnings: warnings, errors: errors)
+            }
         case "\n": // Empty line found
-            ()
+            data.nextPos()
+            return .withSuccess(result: .newLine(.empty), warnings: [])
         case "}": // End of block found
-            ()
+            data.nextPos()
+            return .withSuccess(result: .endOfBlock(.empty), warnings: [])
         case c where c.isWord: // Key start found
-            ()
+            let parser = KVBlockParser.KeyValueParser()
+            let line = parser.parse(data, firstCharacter: c)
+            switch line {
+            case let .withSuccess(result, warnings):
+                switch result {
+                case let .endOfBlock(line):
+                    return .withSuccess(result: .endOfBlock(.kv(line)), warnings: warnings)
+                case let .newLine(line):
+                    return .withSuccess(result: .newLine(.kv(line)), warnings: warnings)
+                }
+            case let .withErrors(warnings, errors):
+                return .withErrors(warnings: warnings, errors: errors)
+            }
         default: // Unexpected symbol
-            ()
+            return .withErrors(warnings: [], errors: [
+                data.error(message: "Unexpected symbol encoutnered while parsing a KV block line"),
+            ])
         }
-
-        return .withSuccess(result: nil, warnings: [])
     }
 }
 
@@ -804,4 +871,6 @@ extension KVBlock.KVLine {
 extension KVBlock.KVLine.Value: Equatable {}
 extension KVBlock.KVLine: Equatable {}
 extension KVBlock: Equatable {}
+extension KVBlockParser.KVLineResult: Equatable {}
+extension KVBlockParser.KVLineType: Equatable {}
 extension KVBlockParser.KeyValueParser.KVLineResult: Equatable {}
