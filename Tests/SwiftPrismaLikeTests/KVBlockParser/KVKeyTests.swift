@@ -3,7 +3,7 @@ import XCTest
 
 final class KVKeyTests: XCTestCase {
     func testKeyParser() throws {
-        let parser = KVBlockParser.KeyParser()
+        typealias Parser = KVBlock.Parser.KeyParser
 
         let data1 = DataSource("this_is_a_key    = ")
         let data2 = DataSource(" k=123 \n")
@@ -13,12 +13,12 @@ final class KVKeyTests: XCTestCase {
         let data5 = DataSource("hello")
         let data6 = DataSource("hello world")
 
-        let result1 = parser.parse(data1, firstCharacter: "t")
-        let result2 = parser.parse(data2, firstCharacter: "k")
-        let result3 = parser.parse(data3, firstCharacter: "h")
-        let result4 = parser.parse(data4, firstCharacter: "h")
-        let result5 = parser.parse(data5, firstCharacter: "h")
-        let result6 = parser.parse(data6, firstCharacter: "h")
+        let result1 = Parser.parse(data1, firstCharacter: "t")
+        let result2 = Parser.parse(data2, firstCharacter: "k")
+        let result3 = Parser.parse(data3, firstCharacter: "h")
+        let result4 = Parser.parse(data4, firstCharacter: "h")
+        let result5 = Parser.parse(data5, firstCharacter: "h")
+        let result6 = Parser.parse(data6, firstCharacter: "h")
 
         XCTAssertEqual(result1, .withSuccess(result: "this_is_a_key", warnings: []))
         XCTAssertEqual(data1.currentLine, 1)

@@ -3,7 +3,7 @@ import XCTest
 
 final class KVLineValueTests: XCTestCase {
     func testQuotedParser() throws {
-        let parser = KVBlockParser.ValueParser.QuotedStringParser()
+        typealias Parser = KVBlock.Parser.ValueParser.QuotedStringParser
 
         let data1 = DataSource("\"a\\\"b1j_kf3 👍\" \\ \n")
         let data2 = DataSource("\"af v\n\" \n")
@@ -16,13 +16,13 @@ final class KVLineValueTests: XCTestCase {
         let data7 = DataSource("\" he\u{1b}llo \n\" ")
         let data8 = DataSource("\"test\"\n")
 
-        let result1 = parser.parse(data1)
-        let result2 = parser.parse(data2)
-        let result3 = parser.parse(data3)
-        let result4 = parser.parse(data4)
-        let result5 = parser.parse(data5)
+        let result1 = Parser.parse(data1)
+        let result2 = Parser.parse(data2)
+        let result3 = Parser.parse(data3)
+        let result4 = Parser.parse(data4)
+        let result5 = Parser.parse(data5)
 
-        let result6A = parser.parse(data6)
+        let result6A = Parser.parse(data6)
 
         XCTAssertEqual(data6.currentCol, 9)
         XCTAssertEqual(data6.currentLine, 1)
@@ -30,9 +30,9 @@ final class KVLineValueTests: XCTestCase {
 
         data6.skipLine()
         data6.skipWhiteSpaces()
-        let result6B = parser.parse(data6)
-        let result7 = parser.parse(data7)
-        let result8 = parser.parse(data8)
+        let result6B = Parser.parse(data6)
+        let result7 = Parser.parse(data7)
+        let result8 = Parser.parse(data8)
 
         XCTAssertEqual(result1, .withSuccess(result: "a\"b1j_kf3 👍", warnings: []))
         XCTAssertEqual(result2, .withErrors(warnings: [], errors: [
@@ -70,7 +70,7 @@ final class KVLineValueTests: XCTestCase {
     }
 
     func testNumberParser() throws {
-        let parser = KVBlockParser.ValueParser.NumberParser()
+        typealias Parser = KVBlock.Parser.ValueParser.NumberParser
 
         let data1 = DataSource("-123")
         let data2 = DataSource("3")
@@ -88,21 +88,21 @@ final class KVLineValueTests: XCTestCase {
         let data14 = DataSource("-.1")
         let data15 = DataSource(".2 ")
 
-        let result1 = parser.parse(data1, firstCharacter: .minus)
-        let result2 = parser.parse(data2, firstCharacter: .digit("3"))
-        let result3 = parser.parse(data3, firstCharacter: .plus)
-        let result4 = parser.parse(data4, firstCharacter: .digit("1"))
-        let result5 = parser.parse(data5, firstCharacter: .plus)
-        let result6 = parser.parse(data6, firstCharacter: .digit("0"))
-        let result7 = parser.parse(data7, firstCharacter: .minus)
-        let result8 = parser.parse(data8, firstCharacter: .digit("1"))
-        let result9 = parser.parse(data9, firstCharacter: .digit("1"))
-        let result10 = parser.parse(data10, firstCharacter: .digit("1"))
-        let result11 = parser.parse(data11, firstCharacter: .minus)
-        let result12 = parser.parse(data12, firstCharacter: .digit("1"))
-        let result13 = parser.parse(data13, firstCharacter: .plus)
-        let result14 = parser.parse(data14, firstCharacter: .minus)
-        let result15 = parser.parse(data15, firstCharacter: .dot)
+        let result1 = Parser.parse(data1, firstCharacter: .minus)
+        let result2 = Parser.parse(data2, firstCharacter: .digit("3"))
+        let result3 = Parser.parse(data3, firstCharacter: .plus)
+        let result4 = Parser.parse(data4, firstCharacter: .digit("1"))
+        let result5 = Parser.parse(data5, firstCharacter: .plus)
+        let result6 = Parser.parse(data6, firstCharacter: .digit("0"))
+        let result7 = Parser.parse(data7, firstCharacter: .minus)
+        let result8 = Parser.parse(data8, firstCharacter: .digit("1"))
+        let result9 = Parser.parse(data9, firstCharacter: .digit("1"))
+        let result10 = Parser.parse(data10, firstCharacter: .digit("1"))
+        let result11 = Parser.parse(data11, firstCharacter: .minus)
+        let result12 = Parser.parse(data12, firstCharacter: .digit("1"))
+        let result13 = Parser.parse(data13, firstCharacter: .plus)
+        let result14 = Parser.parse(data14, firstCharacter: .minus)
+        let result15 = Parser.parse(data15, firstCharacter: .dot)
 
         XCTAssertEqual(result1, .withSuccess(result: .integer(-123), warnings: []))
         XCTAssertEqual(result2, .withSuccess(result: .integer(3), warnings: []))
@@ -131,7 +131,7 @@ final class KVLineValueTests: XCTestCase {
     }
 
     func testBoolParser() throws {
-        let parser = KVBlockParser.ValueParser.BoolParser()
+        typealias Parser = KVBlock.Parser.ValueParser.BoolParser
 
         let data1 = DataSource("true")
         let data2 = DataSource("false // true")
@@ -141,13 +141,13 @@ final class KVLineValueTests: XCTestCase {
         let data6 = DataSource("false- ")
         let data7 = DataSource("faL")
 
-        let result1 = parser.parse(data1, firstCharacter: .t)
-        let result2 = parser.parse(data2, firstCharacter: .f)
-        let result3 = parser.parse(data3, firstCharacter: .t)
-        let result4 = parser.parse(data4, firstCharacter: .f)
-        let result5 = parser.parse(data5, firstCharacter: .t)
-        let result6 = parser.parse(data6, firstCharacter: .f)
-        let result7 = parser.parse(data7, firstCharacter: .f)
+        let result1 = Parser.parse(data1, firstCharacter: .t)
+        let result2 = Parser.parse(data2, firstCharacter: .f)
+        let result3 = Parser.parse(data3, firstCharacter: .t)
+        let result4 = Parser.parse(data4, firstCharacter: .f)
+        let result5 = Parser.parse(data5, firstCharacter: .t)
+        let result6 = Parser.parse(data6, firstCharacter: .f)
+        let result7 = Parser.parse(data7, firstCharacter: .f)
 
         XCTAssertEqual(result1, .withSuccess(result: true, warnings: []))
         XCTAssertEqual(result2, .withSuccess(result: false, warnings: []))
@@ -168,7 +168,7 @@ final class KVLineValueTests: XCTestCase {
     }
 
     func testEnvParser() throws {
-        let parser = KVBlockParser.ValueParser.EnvParser()
+        typealias Parser = KVBlock.Parser.ValueParser.EnvParser
 
         let data1 = DataSource("env(  \"yes?\" )")
         let data2 = DataSource("env(\"no 12\") // is this a comment? \n")
@@ -179,14 +179,14 @@ final class KVLineValueTests: XCTestCase {
         let data7 = DataSource("env( \"18\u{1b} \u{1b}a\n\")")
         let data8 = DataSource("env(\"E\")}")
 
-        let result1 = parser.parse(data1)
-        let result2 = parser.parse(data2)
-        let result3 = parser.parse(data3)
-        let result4 = parser.parse(data4)
-        let result5 = parser.parse(data5)
-        let result6 = parser.parse(data6)
-        let result7 = parser.parse(data7)
-        let result8 = parser.parse(data8)
+        let result1 = Parser.parse(data1)
+        let result2 = Parser.parse(data2)
+        let result3 = Parser.parse(data3)
+        let result4 = Parser.parse(data4)
+        let result5 = Parser.parse(data5)
+        let result6 = Parser.parse(data6)
+        let result7 = Parser.parse(data7)
+        let result8 = Parser.parse(data8)
 
         XCTAssertEqual(result1, .withSuccess(result: "yes?", warnings: []))
         XCTAssertEqual(result2, .withSuccess(result: "no 12", warnings: []))
@@ -214,7 +214,7 @@ final class KVLineValueTests: XCTestCase {
     }
 
     func testValueParser() throws {
-        let parser = KVBlockParser.ValueParser()
+        typealias Parser = KVBlock.Parser.ValueParser
 
         let data1 = DataSource("= \"hello world\" // this is something else")
         data1.skipWhiteSpaces()
@@ -228,15 +228,15 @@ final class KVLineValueTests: XCTestCase {
         let data8 = DataSource("// 23")
         let data9 = DataSource("env(\"O\")}")
 
-        let result1 = parser.parse(data1)
-        let result2 = parser.parse(data2)
-        let result3 = parser.parse(data3)
-        let result4 = parser.parse(data4)
-        let result5 = parser.parse(data5)
-        let result6 = parser.parse(data6)
-        let result7 = parser.parse(data7)
-        let result8 = parser.parse(data8)
-        let result9 = parser.parse(data9)
+        let result1 = Parser.parse(data1)
+        let result2 = Parser.parse(data2)
+        let result3 = Parser.parse(data3)
+        let result4 = Parser.parse(data4)
+        let result5 = Parser.parse(data5)
+        let result6 = Parser.parse(data6)
+        let result7 = Parser.parse(data7)
+        let result8 = Parser.parse(data8)
+        let result9 = Parser.parse(data9)
 
         XCTAssertEqual(result1, .withSuccess(result: .string("hello world"), warnings: []))
         XCTAssertEqual(result2, .withSuccess(result: .number(-123.34), warnings: []))

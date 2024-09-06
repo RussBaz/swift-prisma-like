@@ -1,19 +1,3 @@
-protocol Parser {
-    associatedtype Output
-
-    mutating func parse(_ data: DataSource) -> ParseResult<Output>
-}
-
-protocol CodeReferenceConvertible: Equatable {
-    var reference: CodeReference { get }
-}
-
-struct CodeReference {
-    let message: String
-    let line: Int
-    let col: Int
-}
-
 enum ParseResult<S> {
     case withSuccess(result: S, warnings: [CodeReference])
     case withErrors(warnings: [CodeReference], errors: [CodeReference])
@@ -58,12 +42,5 @@ extension ParseResult: Equatable where S: Equatable {
         default:
             false
         }
-    }
-}
-
-extension CodeReference: Equatable {}
-extension CodeReferenceConvertible {
-    static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.reference == rhs.reference
     }
 }

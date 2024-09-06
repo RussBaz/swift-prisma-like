@@ -9,6 +9,7 @@ import Foundation
 // }
 
 struct KVBlock {
+    enum Parser {}
     struct KVLine {
         enum Value {
             enum FunctionType {
@@ -39,7 +40,12 @@ struct KVBlock {
     var comments: [String]
 }
 
-struct KVBlockParser: Parser {
+extension KVBlock.Parser {
+    enum ValueParser {}
+    enum CommentsParser {}
+    enum KeyParser {}
+    enum KeyValueParser {}
+
     enum KVLineResult {
         case newLine(KVLineType)
         case endOfBlock(KVLineType)
@@ -51,37 +57,17 @@ struct KVBlockParser: Parser {
         case empty
     }
 
-    let name: String
-    let blockComments: [String]
-
-    var accumulatedComments: [String]
-
-    var warnings: [CodeReference]
-    var lines: [KVBlock.KVLine]
-
-    init(name blockName: String, comments: [String]) {
-        name = blockName
-        blockComments = comments
-
-        warnings = []
-        lines = []
-        accumulatedComments = []
-    }
-
-    mutating func resetState() {
-        warnings = []
-        lines = []
-        accumulatedComments = []
-    }
-
-    mutating func parse(_ data: DataSource) -> ParseResult<KVBlock> {
+    static func parse(_ data: DataSource, name: String, comments: [String]) -> ParseResult<KVBlock> {
         var running = true
+        var warnings: [CodeReference] = []
+        var lines: [KVBlock.KVLine] = []
+        var accumulatedComments: [String] = []
 
         while running {
             let line = parseLine(data)
             switch line {
-            case let .withSuccess(result, warnings):
-                self.warnings.append(contentsOf: warnings)
+            case let .withSuccess(result, innerWarnings):
+                warnings.append(contentsOf: innerWarnings)
                 switch result {
                 case let .endOfBlock(type):
                     running = false
@@ -105,18 +91,18 @@ struct KVBlockParser: Parser {
                         accumulatedComments = []
                     }
                 }
-            case let .withErrors(warnings, errors):
+            case let .withErrors(innerWarnings, errors):
                 running = false
-                return .withErrors(warnings: self.warnings + warnings, errors: errors)
+                return .withErrors(warnings: warnings + innerWarnings, errors: errors)
             }
         }
 
-        let r = KVBlock(name: name, lines: lines, comments: blockComments)
+        let r = KVBlock(name: name, lines: lines, comments: comments)
 
         return .withSuccess(result: r, warnings: warnings)
     }
 
-    mutating func parseLine(_ data: DataSource) -> ParseResult<KVLineResult> {
+    static func parseLine(_ data: DataSource) -> ParseResult<KVLineResult> {
         guard let firstCharacter = data.currentCharacter else {
             return .withErrors(warnings: [], errors: [data.error(message: "Unexpected end of stream encountered while parsing a KV block line")])
         }
@@ -133,8 +119,7 @@ struct KVBlockParser: Parser {
 
         switch c {
         case "/": // Comment block start found
-            let parser = KVBlockParser.CommentsParser()
-            let comment = parser.parse(data)
+            let comment = KVBlock.Parser.CommentsParser.parse(data)
             switch comment {
             case let .withSuccess(result, warnings):
                 if let result {
@@ -152,8 +137,7 @@ struct KVBlockParser: Parser {
             data.nextPos()
             return .withSuccess(result: .endOfBlock(.empty), warnings: [])
         case c where c.isWord: // Key start found
-            let parser = KVBlockParser.KeyValueParser()
-            let line = parser.parse(data, firstCharacter: c)
+            let line = KVBlock.Parser.KeyValueParser.parse(data, firstCharacter: c)
             switch line {
             case let .withSuccess(result, warnings):
                 switch result {
@@ -173,73 +157,13 @@ struct KVBlockParser: Parser {
     }
 }
 
-extension KVBlockParser {
-    enum State {
-        case lookingForKey
-        case parsingKey
-        case lookingForKVSeparator
-        case parsingKVSeparator // This case is needed to parse triple comments correctly
+extension KVBlock.Parser.ValueParser {
+    enum QuotedStringParser {}
+    enum NumberParser {}
+    enum BoolParser {}
+    enum EnvParser {}
 
-        case lookingForValue
-
-        case parsingQuotedValue
-        case parsingPossiblyEscapedValue
-
-        case parsingNumberOrTextValue
-        case parsingWholeNumberPartValue
-        case parsingDecimalNumberPartValue
-
-        case parsingBoolOrTextValue
-        case parsingTrueValue
-        case parsingFalseValue
-
-        case parsingFunctionOrTextValue
-
-        case parsingStringValue
-        case parsingNumberValue // Currently only positive intergers are accepted
-        case parsingEnvValue
-        case lookingForComment
-        case lookingForDoubleComment
-        case lookingForTripleComment
-        case parsingComment
-        case parsingError
-        case skippingRestOfLine
-        case endOfBlock
-    }
-
-    struct ValueParser {}
-    struct CommentsParser {}
-    struct KeyParser {}
-    struct KeyValueParser {}
-}
-
-extension KVBlockParser.ValueParser {
-    enum State {
-        case lookingForBeginning
-
-        case parsingQuoted
-        // Nested parser will return either nil or string
-        // New lines will break it and invisible characters should be skipped
-
-        case parsingNumber
-        // Nested parser will return either nil, int number or double number
-        // (on success) plus the next state -> slash or other separators
-
-        case parsingBool
-        // Nested parser will return either nil or bool
-        // (on success) plus the next state -> slash or other separators
-
-        case parsingEnv
-        // Nested parser will return either nil or string
-        // (on success) plus the next state -> slash or other separators
-    }
-
-    struct QuotedStringParser {}
-    struct NumberParser {}
-    struct BoolParser {}
-    struct EnvParser {}
-
-    func parse(_ data: DataSource) -> ParseResult<KVBlock.KVLine.Value> {
+    static func parse(_ data: DataSource) -> ParseResult<KVBlock.KVLine.Value> {
         guard let c = data.currentCharacter else {
             return .withErrors(warnings: [], errors: [
                 data.error(message: "Unexpected end of stream encountered while parsing a KV block line value"),
@@ -250,8 +174,7 @@ extension KVBlockParser.ValueParser {
 
         switch c {
         case "\"":
-            let parser = QuotedStringParser()
-            let result = parser.parse(data)
+            let result = QuotedStringParser.parse(data)
             switch result {
             case let .withSuccess(result: value, warnings: warnings):
                 return .withSuccess(result: .string(value), warnings: warnings)
@@ -259,8 +182,7 @@ extension KVBlockParser.ValueParser {
                 return .withErrors(warnings: warnings, errors: errors)
             }
         case "+":
-            let parser = NumberParser()
-            let result = parser.parse(data, firstCharacter: .plus)
+            let result = NumberParser.parse(data, firstCharacter: .plus)
             switch result {
             case let .withSuccess(result: value, warnings: warnings):
                 switch value {
@@ -273,8 +195,7 @@ extension KVBlockParser.ValueParser {
                 return .withErrors(warnings: warnings, errors: errors)
             }
         case "-":
-            let parser = NumberParser()
-            let result = parser.parse(data, firstCharacter: .minus)
+            let result = NumberParser.parse(data, firstCharacter: .minus)
             switch result {
             case let .withSuccess(result: value, warnings: warnings):
                 switch value {
@@ -287,8 +208,7 @@ extension KVBlockParser.ValueParser {
                 return .withErrors(warnings: warnings, errors: errors)
             }
         case ".":
-            let parser = NumberParser()
-            let result = parser.parse(data, firstCharacter: .dot)
+            let result = NumberParser.parse(data, firstCharacter: .dot)
             switch result {
             case .withSuccess(result: let value, warnings: var warnings):
                 switch value {
@@ -302,8 +222,7 @@ extension KVBlockParser.ValueParser {
                 return .withErrors(warnings: warnings, errors: errors)
             }
         case c where c.isASCIINumber:
-            let parser = NumberParser()
-            let result = parser.parse(data, firstCharacter: .digit(c))
+            let result = NumberParser.parse(data, firstCharacter: .digit(c))
             switch result {
             case let .withSuccess(result: value, warnings: warnings):
                 switch value {
@@ -316,8 +235,7 @@ extension KVBlockParser.ValueParser {
                 return .withErrors(warnings: warnings, errors: errors)
             }
         case "t", "T":
-            let parser = BoolParser()
-            let result = parser.parse(data, firstCharacter: .t)
+            let result = BoolParser.parse(data, firstCharacter: .t)
             switch result {
             case let .withSuccess(result: value, warnings: warnings):
                 return .withSuccess(result: .boolean(value), warnings: warnings)
@@ -325,8 +243,7 @@ extension KVBlockParser.ValueParser {
                 return .withErrors(warnings: warnings, errors: errors)
             }
         case "f", "F":
-            let parser = BoolParser()
-            let result = parser.parse(data, firstCharacter: .f)
+            let result = BoolParser.parse(data, firstCharacter: .f)
             switch result {
             case let .withSuccess(result: value, warnings: warnings):
                 return .withSuccess(result: .boolean(value), warnings: warnings)
@@ -334,8 +251,7 @@ extension KVBlockParser.ValueParser {
                 return .withErrors(warnings: warnings, errors: errors)
             }
         case "e":
-            let parser = EnvParser()
-            let result = parser.parse(data)
+            let result = EnvParser.parse(data)
             switch result {
             case let .withSuccess(result: value, warnings: warnings):
                 return .withSuccess(result: .env(value), warnings: warnings)
@@ -350,7 +266,7 @@ extension KVBlockParser.ValueParser {
     }
 }
 
-extension KVBlockParser.ValueParser.QuotedStringParser {
+extension KVBlock.Parser.ValueParser.QuotedStringParser {
     enum State {
         case normal
         case possiblyQuoted
@@ -360,7 +276,7 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
     /// It will return 'nil' if the new line or the end of data are encountered before the end of quoted string is reached
     /// Unlike most other parser, quoted string parser does not test the next symbol after the closing quotes
     /// In addition, the data source must be pointing at the opening quotation marks before parsing
-    func parse(_ data: DataSource) -> ParseResult<String> {
+    static func parse(_ data: DataSource) -> ParseResult<String> {
         var state: State = .normal
         var buffer = ""
 
@@ -430,7 +346,7 @@ extension KVBlockParser.ValueParser.QuotedStringParser {
     }
 }
 
-extension KVBlockParser.ValueParser.NumberParser {
+extension KVBlock.Parser.ValueParser.NumberParser {
     enum State {
         case empty
         case parsingInteger
@@ -449,7 +365,7 @@ extension KVBlockParser.ValueParser.NumberParser {
         case double(Double)
     }
 
-    func parse(_ data: DataSource, firstCharacter: FirstCharacterType) -> ParseResult<Output> {
+    static func parse(_ data: DataSource, firstCharacter: FirstCharacterType) -> ParseResult<Output> {
         var state: State = .empty
         var buffer = if case .minus = firstCharacter { "-" } else { "" }
 
@@ -529,12 +445,12 @@ extension KVBlockParser.ValueParser.NumberParser {
     }
 }
 
-extension KVBlockParser.ValueParser.BoolParser {
+extension KVBlock.Parser.ValueParser.BoolParser {
     enum FirstCharacterType {
         case t, f
     }
 
-    func parse(_ data: DataSource, firstCharacter: FirstCharacterType) -> ParseResult<Bool> {
+    static func parse(_ data: DataSource, firstCharacter: FirstCharacterType) -> ParseResult<Bool> {
         switch firstCharacter {
         case .t:
             guard let c2 = data.nextCharacter() else {
@@ -645,8 +561,8 @@ extension KVBlockParser.ValueParser.BoolParser {
     }
 }
 
-extension KVBlockParser.ValueParser.EnvParser {
-    func parse(_ data: DataSource) -> ParseResult<String> {
+extension KVBlock.Parser.ValueParser.EnvParser {
+    static func parse(_ data: DataSource) -> ParseResult<String> {
         guard let c2 = data.nextCharacter(), c2 == "n" else {
             return .withErrors(warnings: [], errors: [
                 data.error(message: "Unexpected symbol encoutnered while parsing an environment variable value"),
@@ -673,7 +589,7 @@ extension KVBlockParser.ValueParser.EnvParser {
             ])
         }
 
-        let content = KVBlockParser.ValueParser.QuotedStringParser().parse(data)
+        let content = KVBlock.Parser.ValueParser.QuotedStringParser.parse(data)
 
         guard case let .withSuccess(content, warnings) = content else {
             let warnings = content.warnings
@@ -706,8 +622,8 @@ extension KVBlockParser.ValueParser.EnvParser {
     }
 }
 
-extension KVBlockParser.CommentsParser {
-    func parse(_ data: DataSource) -> ParseResult<String?> {
+extension KVBlock.Parser.CommentsParser {
+    static func parse(_ data: DataSource) -> ParseResult<String?> {
         let first = data.nextCharacter()
 
         guard first == "/" else {
@@ -733,8 +649,8 @@ extension KVBlockParser.CommentsParser {
     }
 }
 
-extension KVBlockParser.KeyParser {
-    func parse(_ data: DataSource, firstCharacter: Character) -> ParseResult<String> {
+extension KVBlock.Parser.KeyParser {
+    static func parse(_ data: DataSource, firstCharacter: Character) -> ParseResult<String> {
         var buffer = "\(firstCharacter)"
 
         while let c = data.nextCharacter() {
@@ -770,15 +686,14 @@ extension KVBlockParser.KeyParser {
     }
 }
 
-extension KVBlockParser.KeyValueParser {
+extension KVBlock.Parser.KeyValueParser {
     enum KVLineResult {
         case newLine(KVBlock.KVLine)
         case endOfBlock(KVBlock.KVLine)
     }
 
-    func parse(_ data: DataSource, firstCharacter: Character) -> ParseResult<KVLineResult> {
-        let keyParser = KVBlockParser.KeyParser()
-        let key = keyParser.parse(data, firstCharacter: firstCharacter)
+    static func parse(_ data: DataSource, firstCharacter: Character) -> ParseResult<KVLineResult> {
+        let key = KVBlock.Parser.KeyParser.parse(data, firstCharacter: firstCharacter)
 
         guard case let .withSuccess(keyContent, warnings) = key else {
             return .withErrors(warnings: key.warnings, errors: key.errors)
@@ -790,8 +705,7 @@ extension KVBlockParser.KeyValueParser {
             data.skipWhiteSpaces()
         }
 
-        let valueParser = KVBlockParser.ValueParser()
-        let value = valueParser.parse(data)
+        let value = KVBlock.Parser.ValueParser.parse(data)
 
         guard case let .withSuccess(valueContent, warnings) = value else {
             return .withErrors(warnings: allWarnings + value.warnings, errors: value.errors)
@@ -843,8 +757,7 @@ extension KVBlockParser.KeyValueParser {
                 ])
             }
         case "/":
-            let commentsParser = KVBlockParser.CommentsParser()
-            let comment = commentsParser.parse(data)
+            let comment = KVBlock.Parser.CommentsParser.parse(data)
             switch comment {
             case let .withSuccess(result, warnings):
                 let result: [String]? = if let result { [result] } else { nil }
@@ -871,6 +784,6 @@ extension KVBlock.KVLine {
 extension KVBlock.KVLine.Value: Equatable {}
 extension KVBlock.KVLine: Equatable {}
 extension KVBlock: Equatable {}
-extension KVBlockParser.KVLineResult: Equatable {}
-extension KVBlockParser.KVLineType: Equatable {}
-extension KVBlockParser.KeyValueParser.KVLineResult: Equatable {}
+extension KVBlock.Parser.KVLineResult: Equatable {}
+extension KVBlock.Parser.KVLineType: Equatable {}
+extension KVBlock.Parser.KeyValueParser.KVLineResult: Equatable {}

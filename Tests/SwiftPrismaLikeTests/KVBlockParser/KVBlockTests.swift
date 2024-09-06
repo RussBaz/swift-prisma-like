@@ -42,17 +42,14 @@ final class KVBlockTests: XCTestCase {
             comments: comments
         )
 
-        var parser = KVBlockParser(name: blockName, comments: comments)
         let data = DataSource(block)
 
-        let result = parser.parse(data)
+        let result = KVBlock.Parser.parse(data, name: blockName, comments: comments)
 
         XCTAssertEqual(.withSuccess(result: expectedResult, warnings: []), result)
     }
 
     func testIndividualLineParser() throws {
-        var parser = KVBlockParser(name: "block", comments: [])
-
         let data1 = DataSource("d     =       env(\"ooops\")\n")
         let data2 = DataSource("\n")
         let data3 = DataSource("}    \n")
@@ -63,23 +60,15 @@ final class KVBlockTests: XCTestCase {
         let data8 = DataSource("  c = true }")
         let data9 = DataSource(" ")
 
-        let result1 = parser.parseLine(data1)
-        parser.resetState()
-        let result2 = parser.parseLine(data2)
-        parser.resetState()
-        let result3 = parser.parseLine(data3)
-        parser.resetState()
-        let result4 = parser.parseLine(data4)
-        parser.resetState()
-        let result5 = parser.parseLine(data5)
-        parser.resetState()
-        let result6 = parser.parseLine(data6)
-        parser.resetState()
-        let result7 = parser.parseLine(data7)
-        parser.resetState()
-        let result8 = parser.parseLine(data8)
-        parser.resetState()
-        let result9 = parser.parseLine(data9)
+        let result1 = KVBlock.Parser.parseLine(data1)
+        let result2 = KVBlock.Parser.parseLine(data2)
+        let result3 = KVBlock.Parser.parseLine(data3)
+        let result4 = KVBlock.Parser.parseLine(data4)
+        let result5 = KVBlock.Parser.parseLine(data5)
+        let result6 = KVBlock.Parser.parseLine(data6)
+        let result7 = KVBlock.Parser.parseLine(data7)
+        let result8 = KVBlock.Parser.parseLine(data8)
+        let result9 = KVBlock.Parser.parseLine(data9)
 
         XCTAssertEqual(result1, .withSuccess(result: .newLine(.kv(.init(key: "d", value: .env("ooops")))), warnings: []))
         XCTAssertEqual(data1.currentLine, 2)
@@ -94,7 +83,7 @@ final class KVBlockTests: XCTestCase {
         ]))
         XCTAssertEqual(result8, .withSuccess(result: .endOfBlock(.kv(.init(key: "c", value: .boolean(true)))), warnings: []))
         XCTAssertEqual(result9, .withErrors(warnings: [], errors: [
-            .init(message: "Unexpected end of stream encountered while parsing a KV block line", line: 1, col: 2)
+            .init(message: "Unexpected end of stream encountered while parsing a KV block line", line: 1, col: 2),
         ]))
     }
 }

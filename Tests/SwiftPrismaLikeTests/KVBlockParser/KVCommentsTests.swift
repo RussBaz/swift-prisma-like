@@ -3,7 +3,7 @@ import XCTest
 
 final class KVCommentsTests: XCTestCase {
     func testCommentsParser() throws {
-        let parser = KVBlockParser.CommentsParser()
+        typealias Parser = KVBlock.Parser.CommentsParser
 
         let data1 = DataSource("//")
         let data2 = DataSource("// hello world k=1\n k=2")
@@ -17,16 +17,16 @@ final class KVCommentsTests: XCTestCase {
         data9.skipWhiteSpaces()
         let data10 = DataSource("/// hello\n")
 
-        let result1 = parser.parse(data1)
-        let result2 = parser.parse(data2)
-        let result3 = parser.parse(data3)
-        let result4 = parser.parse(data4)
-        let result5 = parser.parse(data5)
-        let result6 = parser.parse(data6)
-        let result7 = parser.parse(data7)
-        let result8 = parser.parse(data8)
-        let result9 = parser.parse(data9)
-        let result10 = parser.parse(data10)
+        let result1 = Parser.parse(data1)
+        let result2 = Parser.parse(data2)
+        let result3 = Parser.parse(data3)
+        let result4 = Parser.parse(data4)
+        let result5 = Parser.parse(data5)
+        let result6 = Parser.parse(data6)
+        let result7 = Parser.parse(data7)
+        let result8 = Parser.parse(data8)
+        let result9 = Parser.parse(data9)
+        let result10 = Parser.parse(data10)
 
         XCTAssertEqual(result1, .withSuccess(result: nil, warnings: []))
         XCTAssertEqual(data1.currentLine, 1)

@@ -3,7 +3,7 @@ import XCTest
 
 final class KVLineTests: XCTestCase {
     func testKVLineParser() throws {
-        let parser = KVBlockParser.KeyValueParser()
+        typealias Parser = KVBlock.Parser.KeyValueParser
 
         let data1 = DataSource("hello_world = -18 //  Whatever test\n12")
         let data2 = DataSource("   this= \"nothing special, ok?\"///Poor boys   \n")
@@ -15,14 +15,14 @@ final class KVLineTests: XCTestCase {
         let data7 = DataSource("w=\"w\"}bad")
         let data8 = DataSource("ab =  \"1\u{1b}\"}")
 
-        let result1 = parser.parse(data1, firstCharacter: "h")
-        let result2 = parser.parse(data2, firstCharacter: "t")
-        let result3 = parser.parse(data3, firstCharacter: "l")
-        let result4 = parser.parse(data4, firstCharacter: "w")
-        let result5 = parser.parse(data5, firstCharacter: "w")
-        let result6 = parser.parse(data6, firstCharacter: "w")
-        let result7 = parser.parse(data7, firstCharacter: "w")
-        let result8 = parser.parse(data8, firstCharacter: "a")
+        let result1 = Parser.parse(data1, firstCharacter: "h")
+        let result2 = Parser.parse(data2, firstCharacter: "t")
+        let result3 = Parser.parse(data3, firstCharacter: "l")
+        let result4 = Parser.parse(data4, firstCharacter: "w")
+        let result5 = Parser.parse(data5, firstCharacter: "w")
+        let result6 = Parser.parse(data6, firstCharacter: "w")
+        let result7 = Parser.parse(data7, firstCharacter: "w")
+        let result8 = Parser.parse(data8, firstCharacter: "a")
 
         XCTAssertEqual(result1, .withSuccess(result: .newLine(.init(key: "hello_world", value: .integer(-18))), warnings: []))
         XCTAssertEqual(data1.currentLine, 2)
