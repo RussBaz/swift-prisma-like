@@ -57,6 +57,13 @@ extension KVBlock.Parser {
         case empty
     }
 
+    enum Problem {
+        case endOfStream
+        case unexpectedSymbol(Character)
+        case commentProblem
+        case keyValueProble
+    }
+
     static func parse(_ data: DataSource, name: String, comments: [String]) -> ParseResult<KVBlock> {
         var running = true
         var warnings: [CodeReference] = []
@@ -162,6 +169,15 @@ extension KVBlock.Parser.ValueParser {
     enum NumberParser {}
     enum BoolParser {}
     enum EnvParser {}
+
+    enum Problem {
+        case endOfStream
+        case unexpectedSymbol(Character)
+        case quotedStringProblem
+        case numberProblem
+        case boolProblem
+        case envProblem
+    }
 
     static func parse(_ data: DataSource) -> ParseResult<KVBlock.KVLine.Value> {
         guard let c = data.currentCharacter else {
@@ -272,6 +288,12 @@ extension KVBlock.Parser.ValueParser.QuotedStringParser {
         case possiblyQuoted
     }
 
+    enum Problem {
+        case controlCharacter
+        case newLine
+        case endOfStream
+    }
+
     /// Extracts the string contents until an unescaped quotation symbol is enountered
     /// It will return 'nil' if the new line or the end of data are encountered before the end of quoted string is reached
     /// Unlike most other parser, quoted string parser does not test the next symbol after the closing quotes
@@ -351,6 +373,12 @@ extension KVBlock.Parser.ValueParser.NumberParser {
         case empty
         case parsingInteger
         case parsingDouble
+    }
+
+    enum Problem {
+        case integerInsteadOfDouble
+        case unexpectedSymbol(Character)
+        case endOfStream
     }
 
     enum FirstCharacterType {
@@ -448,6 +476,11 @@ extension KVBlock.Parser.ValueParser.NumberParser {
 extension KVBlock.Parser.ValueParser.BoolParser {
     enum FirstCharacterType {
         case t, f
+    }
+
+    enum Problem {
+        case unexpectedSymbol(Character)
+        case endOfStream
     }
 
     static func parse(_ data: DataSource, firstCharacter: FirstCharacterType) -> ParseResult<Bool> {
@@ -562,6 +595,11 @@ extension KVBlock.Parser.ValueParser.BoolParser {
 }
 
 extension KVBlock.Parser.ValueParser.EnvParser {
+    enum Problem {
+        case unexpectedSymbol(Character)
+        case quotedStringProblem
+    }
+
     static func parse(_ data: DataSource) -> ParseResult<String> {
         guard let c2 = data.nextCharacter(), c2 == "n" else {
             return .withErrors(warnings: [], errors: [
@@ -623,6 +661,10 @@ extension KVBlock.Parser.ValueParser.EnvParser {
 }
 
 extension KVBlock.Parser.CommentsParser {
+    enum Problem {
+        case unexpectedSymbol(Character)
+    }
+
     static func parse(_ data: DataSource) -> ParseResult<String?> {
         let first = data.nextCharacter()
 
@@ -650,6 +692,12 @@ extension KVBlock.Parser.CommentsParser {
 }
 
 extension KVBlock.Parser.KeyParser {
+    enum Problem {
+        case missingEqualsSign(Character)
+        case unexpectedSymbol(Character)
+        case endOfStream
+    }
+
     static func parse(_ data: DataSource, firstCharacter: Character) -> ParseResult<String> {
         var buffer = "\(firstCharacter)"
 
@@ -690,6 +738,15 @@ extension KVBlock.Parser.KeyValueParser {
     enum KVLineResult {
         case newLine(KVBlock.KVLine)
         case endOfBlock(KVBlock.KVLine)
+    }
+
+    enum Problem {
+        case endOfStream
+        case unexpectedSymbol(Character)
+        case skippedSymbols
+        case keyProblem
+        case valueProblem
+        case commentProblem
     }
 
     static func parse(_ data: DataSource, firstCharacter: Character) -> ParseResult<KVLineResult> {
