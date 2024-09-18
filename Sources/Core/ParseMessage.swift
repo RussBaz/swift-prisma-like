@@ -1,13 +1,16 @@
-protocol ParserMessage {
+public protocol ParseMessage: Equatable {
     var reason: String { get }
     var message: String { get }
 }
 
-extension ParserMessage {
+extension ParseMessage {
     var message: String { reason }
+    func reference(line: Int, col: Int, level: MessageLevel) -> CodeReference<Self> {
+        .init(message: self, line: line, col: col, level: level)
+    }
 }
 
-extension KVBlock.Parser.ValueParser.BoolParser.Problem: ParserMessage {
+extension KVBlock.Parser.ValueParser.BoolParser.Problem: ParseMessage {
     var reason: String {
         switch self {
         case .endOfStream: "Unexpected end of stream"
@@ -16,7 +19,7 @@ extension KVBlock.Parser.ValueParser.BoolParser.Problem: ParserMessage {
     }
 }
 
-extension KVBlock.Parser.ValueParser.QuotedStringParser.Problem: ParserMessage {
+extension KVBlock.Parser.ValueParser.QuotedStringParser.Problem: ParseMessage {
     var reason: String {
         switch self {
         case .endOfStream: "Unexpected end of stream"
@@ -26,26 +29,37 @@ extension KVBlock.Parser.ValueParser.QuotedStringParser.Problem: ParserMessage {
     }
 }
 
-extension KVBlock.Parser.ValueParser.EnvParser.Problem: ParserMessage {
+extension KVBlock.Parser.ValueParser.EnvParser.Problem: ParseMessage {
     var reason: String {
         switch self {
         case let .unexpectedSymbol(c): "Unexpected character \"\(c)\""
         case .quotedStringProblem: "Inner quoted string value parsing failed"
+        case .endOfStream: "Unexpected end of stream"
         }
     }
 }
 
-extension KVBlock.Parser.ValueParser.NumberParser.Problem: ParserMessage {
+extension KVBlock.Parser.ValueParser.NumberParser.Problem: ParseMessage {
     var reason: String {
         switch self {
         case .endOfStream: "Unexpected end of stream"
         case let .unexpectedSymbol(c): "Unexpected character \"\(c)\""
+        case let .unexpectedSequence(s): "Unexpected string \"\(s)\""
         case .integerInsteadOfDouble: "Received an Integer number but a Double number was expected"
         }
     }
 }
 
-extension KVBlock.Parser.ValueParser.Problem: ParserMessage {
+extension KVBlock.Parser.CommentsParser.Problem: ParseMessage {
+    var reason: String {
+        switch self {
+        case let .unexpectedSymbol(c): "Unexpected character \"\(c)\""
+        case .endOfStream: "Unexpected end of stream"
+        }
+    }
+}
+
+extension KVBlock.Parser.ValueParser.Problem: ParseMessage {
     var reason: String {
         switch self {
         case .endOfStream: "Unexpected end of stream"
@@ -58,17 +72,18 @@ extension KVBlock.Parser.ValueParser.Problem: ParserMessage {
     }
 }
 
-extension KVBlock.Parser.KeyParser.Problem: ParserMessage {
+extension KVBlock.Parser.KeyParser.Problem: ParseMessage {
     var reason: String {
         switch self {
         case .endOfStream: "Unexpected end of stream"
         case let .unexpectedSymbol(c): "Unexpected character \"\(c)\""
         case let .missingEqualsSign(c): "Expected \"=\" but encountered \"\(c)\""
+        case .endOfLine: "Unexpected end of line"
         }
     }
 }
 
-extension KVBlock.Parser.KeyValueParser.Problem: ParserMessage {
+extension KVBlock.Parser.KeyValueParser.Problem: ParseMessage {
     var reason: String {
         switch self {
         case .endOfStream: "Unexpected end of stream"
@@ -81,7 +96,7 @@ extension KVBlock.Parser.KeyValueParser.Problem: ParserMessage {
     }
 }
 
-extension KVBlock.Parser.Problem: ParserMessage {
+extension KVBlock.Parser.Problem: ParseMessage {
     var reason: String {
         switch self {
         case .endOfStream: "Unexpected end of stream"

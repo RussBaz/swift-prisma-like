@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "swift-prisma-like",
     platforms: [
-        .macOS(.v13),
+        .macOS(.v14),
     ],
     products: [
         .library(

@@ -4,6 +4,7 @@ import XCTest
 final class KVKeyTests: XCTestCase {
     func testKeyParser() throws {
         typealias Parser = KVBlock.Parser.KeyParser
+        typealias Problem = KVBlock.Parser.KeyParser.Problem
 
         let data1 = DataSource("this_is_a_key    = ")
         let data2 = DataSource(" k=123 \n")
@@ -20,34 +21,34 @@ final class KVKeyTests: XCTestCase {
         let result5 = Parser.parse(data5, firstCharacter: "h")
         let result6 = Parser.parse(data6, firstCharacter: "h")
 
-        XCTAssertEqual(result1, .withSuccess(result: "this_is_a_key", warnings: []))
+        XCTAssertEqual(result1, .withSuccess(result: "this_is_a_key", messages: []))
         XCTAssertEqual(data1.currentLine, 1)
         XCTAssertEqual(data1.currentCol, 19)
 
-        XCTAssertEqual(result2, .withSuccess(result: "k", warnings: []))
+        XCTAssertEqual(result2, .withSuccess(result: "k", messages: []))
         XCTAssertEqual(data2.currentLine, 1)
         XCTAssertEqual(data2.currentCol, 4)
 
-        XCTAssertEqual(result3, .withErrors(warnings: [], errors: [
-            .init(message: "Unexpected symbol encoutnered while parsing a key value", line: 1, col: 6),
+        XCTAssertEqual(result3, .withErrors(messages: [
+            Problem.unexpectedSymbol("-").reference(line: 1, col: 6, level: .error),
         ]))
         XCTAssertEqual(data3.currentLine, 1)
         XCTAssertEqual(data3.currentCol, 6)
 
-        XCTAssertEqual(result4, .withErrors(warnings: [], errors: [
-            .init(message: "Unexpected end of line encoutnered while parsing a key value", line: 1, col: 6),
+        XCTAssertEqual(result4, .withErrors(messages: [
+            Problem.endOfLine.reference(line: 1, col: 6, level: .error),
         ]))
         XCTAssertEqual(data4.currentLine, 1)
         XCTAssertEqual(data4.currentCol, 6)
 
-        XCTAssertEqual(result5, .withErrors(warnings: [], errors: [
-            .init(message: "Unexpected end of stream encountered while parsing a key value", line: 1, col: 6),
+        XCTAssertEqual(result5, .withErrors(messages: [
+            Problem.endOfStream.reference(line: 1, col: 6, level: .error),
         ]))
         XCTAssertEqual(data5.currentLine, 1)
         XCTAssertEqual(data5.currentCol, 6)
 
-        XCTAssertEqual(result6, .withErrors(warnings: [], errors: [
-            .init(message: "Unexpected symbol encoutnered while looking for '=' sign", line: 1, col: 7),
+        XCTAssertEqual(result6, .withErrors(messages: [
+            Problem.missingEqualsSign("w").reference(line: 1, col: 7, level: .error),
         ]))
         XCTAssertEqual(data6.currentLine, 1)
         XCTAssertEqual(data6.currentCol, 7)

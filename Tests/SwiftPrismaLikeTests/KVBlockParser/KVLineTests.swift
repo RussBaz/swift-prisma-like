@@ -4,6 +4,7 @@ import XCTest
 final class KVLineTests: XCTestCase {
     func testKVLineParser() throws {
         typealias Parser = KVBlock.Parser.KeyValueParser
+        typealias Problem = KVBlock.Parser.KeyValueParser.Problem
 
         let data1 = DataSource("hello_world = -18 //  Whatever test\n12")
         let data2 = DataSource("   this= \"nothing special, ok?\"///Poor boys   \n")
@@ -24,37 +25,37 @@ final class KVLineTests: XCTestCase {
         let result7 = Parser.parse(data7, firstCharacter: "w")
         let result8 = Parser.parse(data8, firstCharacter: "a")
 
-        XCTAssertEqual(result1, .withSuccess(result: .newLine(.init(key: "hello_world", value: .integer(-18))), warnings: []))
+        XCTAssertEqual(result1, .withSuccess(result: .newLine(.init(key: "hello_world", value: .integer(-18))), messages: []))
         XCTAssertEqual(data1.currentLine, 2)
         XCTAssertEqual(data1.currentCol, 1)
 
-        XCTAssertEqual(result2, .withSuccess(result: .newLine(.init(key: "this", value: .string("nothing special, ok?"), comments: ["Poor boys"])), warnings: []))
+        XCTAssertEqual(result2, .withSuccess(result: .newLine(.init(key: "this", value: .string("nothing special, ok?"), comments: ["Poor boys"])), messages: []))
         XCTAssertEqual(c2, "t")
         XCTAssertEqual(data2.currentLine, 2)
         XCTAssertEqual(data2.currentCol, 1)
 
-        XCTAssertEqual(result3, .withSuccess(result: .endOfBlock(.init(key: "l", value: .env("E"))), warnings: []))
+        XCTAssertEqual(result3, .withSuccess(result: .endOfBlock(.init(key: "l", value: .env("E"))), messages: []))
         XCTAssertEqual(data3.currentLine, 2)
         XCTAssertEqual(data3.currentCol, 1)
 
-        XCTAssertEqual(result4, .withErrors(warnings: [], errors: [
-            .init(message: "Unexpected end of stream encountered while parsing a KV line", line: 1, col: 11),
+        XCTAssertEqual(result4, .withErrors(messages: [
+            KVBlock.Parser.ValueParser.EnvParser.Problem.endOfStream.reference(line: 1, col: 11, level: .error),
         ]))
 
-        XCTAssertEqual(result5, .withSuccess(result: .endOfBlock(.init(key: "w", value: .string("w"))), warnings: [
-            .init(message: "Unexpected symbols encountered and skipped after parsing a KV line", line: 1, col: 9),
+        XCTAssertEqual(result5, .withSuccess(result: .endOfBlock(.init(key: "w", value: .string("w"))), messages: [
+            Problem.skippedSymbols.reference(line: 1, col: 9, level: .warning),
         ]))
 
-        XCTAssertEqual(result6, .withErrors(warnings: [], errors: [
-            .init(message: "Unexpected symbol encoutnered while parsing a KV line", line: 1, col: 7),
+        XCTAssertEqual(result6, .withErrors(messages: [
+            Problem.unexpectedSymbol("c").reference(line: 1, col: 7, level: .error),
         ]))
 
-        XCTAssertEqual(result7, .withErrors(warnings: [], errors: [
-            .init(message: "Unexpected symbol encoutnered while parsing a KV line", line: 1, col: 7),
+        XCTAssertEqual(result7, .withErrors(messages: [
+            Problem.unexpectedSymbol("b").reference(line: 1, col: 7, level: .error),
         ]))
 
-        XCTAssertEqual(result8, .withSuccess(result: .endOfBlock(.init(key: "ab", value: .string("1"))), warnings: [
-            .init(message: "Control characters were detected and skipped in the quoted string", line: 1, col: 7),
+        XCTAssertEqual(result8, .withSuccess(result: .endOfBlock(.init(key: "ab", value: .string("1"))), messages: [
+            KVBlock.Parser.ValueParser.QuotedStringParser.Problem.controlCharacter.reference(line: 1, col: 7, level: .warning),
         ]))
     }
 }

@@ -4,6 +4,7 @@ import XCTest
 final class KVCommentsTests: XCTestCase {
     func testCommentsParser() throws {
         typealias Parser = KVBlock.Parser.CommentsParser
+        typealias Problem = KVBlock.Parser.CommentsParser.Problem
 
         let data1 = DataSource("//")
         let data2 = DataSource("// hello world k=1\n k=2")
@@ -28,47 +29,47 @@ final class KVCommentsTests: XCTestCase {
         let result9 = Parser.parse(data9)
         let result10 = Parser.parse(data10)
 
-        XCTAssertEqual(result1, .withSuccess(result: nil, warnings: []))
+        XCTAssertEqual(result1, .withSuccess(result: nil, messages: []))
         XCTAssertEqual(data1.currentLine, 1)
         XCTAssertEqual(data1.currentCol, 3)
 
-        XCTAssertEqual(result2, .withSuccess(result: nil, warnings: []))
+        XCTAssertEqual(result2, .withSuccess(result: nil, messages: []))
         XCTAssertEqual(data2.currentLine, 2)
         XCTAssertEqual(data2.currentCol, 1)
 
-        XCTAssertEqual(result3, .withSuccess(result: "", warnings: []))
+        XCTAssertEqual(result3, .withSuccess(result: "", messages: []))
         XCTAssertEqual(data3.currentLine, 1)
         XCTAssertEqual(data3.currentCol, 4)
 
-        XCTAssertEqual(result4, .withSuccess(result: "hello world k=1", warnings: []))
+        XCTAssertEqual(result4, .withSuccess(result: "hello world k=1", messages: []))
         XCTAssertEqual(data4.currentLine, 2)
         XCTAssertEqual(data4.currentCol, 1)
 
-        XCTAssertEqual(result5, .withSuccess(result: nil, warnings: []))
+        XCTAssertEqual(result5, .withSuccess(result: nil, messages: []))
         XCTAssertEqual(data5.currentLine, 1)
         XCTAssertEqual(data5.currentCol, 4)
 
-        XCTAssertEqual(result6, .withSuccess(result: "1", warnings: []))
+        XCTAssertEqual(result6, .withSuccess(result: "1", messages: []))
         XCTAssertEqual(data6.currentLine, 1)
         XCTAssertEqual(data6.currentCol, 5)
 
-        XCTAssertEqual(result7, .withErrors(warnings: [], errors: [
-            .init(message: "Unexpected symbol encoutnered while parsing a comment opening", line: 1, col: 2),
+        XCTAssertEqual(result7, .withErrors(messages: [
+            Problem.unexpectedSymbol(" ").reference(line: 1, col: 2, level: .error),
         ]))
         XCTAssertEqual(data7.currentLine, 1)
         XCTAssertEqual(data7.currentCol, 2)
 
-        XCTAssertEqual(result8, .withErrors(warnings: [], errors: [
-            .init(message: "Unexpected symbol encoutnered while parsing a comment opening", line: 1, col: 2),
+        XCTAssertEqual(result8, .withErrors(messages: [
+            Problem.unexpectedSymbol("e").reference(line: 1, col: 2, level: .error),
         ]))
         XCTAssertEqual(data8.currentLine, 1)
         XCTAssertEqual(data8.currentCol, 2)
 
-        XCTAssertEqual(result9, .withSuccess(result: "This is a new comment", warnings: []))
+        XCTAssertEqual(result9, .withSuccess(result: "This is a new comment", messages: []))
         XCTAssertEqual(data9.currentLine, 1)
         XCTAssertEqual(data9.currentCol, 34)
 
-        XCTAssertEqual(result10, .withSuccess(result: "hello", warnings: []))
+        XCTAssertEqual(result10, .withSuccess(result: "hello", messages: []))
         XCTAssertEqual(data10.currentLine, 2)
         XCTAssertEqual(data10.currentCol, 1)
     }
